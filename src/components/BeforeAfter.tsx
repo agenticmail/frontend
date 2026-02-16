@@ -1,6 +1,6 @@
 'use client';
 
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useState } from 'react';
 
 type Line = { text: string; color: string };
@@ -11,6 +11,10 @@ interface Scenario {
   shortLabel: string;
   before: Line[];
   after: Line[];
+  details: {
+    title: string;
+    points: string[];
+  };
 }
 
 const scenarios: Scenario[] = [
@@ -43,129 +47,157 @@ const scenarios: Scenario[] = [
       { text: '  • Sarah (45m ago): "Adding the team"', color: 'text-accent-green' },
       { text: '  I\'ve drafted a follow-up. Send it?', color: 'text-accent' },
     ],
-  },
-  {
-    id: 'attachments',
-    label: 'Create & Send Attachments',
-    shortLabel: 'Attachments',
-    before: [
-      { text: 'You: Write a petition letter and send it to', color: 'text-gray-300' },
-      { text: '     the city council as a PDF', color: 'text-gray-300' },
-      { text: '', color: '' },
-      { text: 'OpenClaw: I\'ve drafted the petition letter.', color: 'text-accent-red' },
-      { text: '          However, I can\'t create PDFs or send', color: 'text-accent-red' },
-      { text: '          emails. You\'ll need to:', color: 'text-accent-red' },
-      { text: '          1. Copy this text into a doc', color: 'text-accent-red' },
-      { text: '          2. Export as PDF', color: 'text-accent-red' },
-      { text: '          3. Attach and send it yourself', color: 'text-accent-red' },
-    ],
-    after: [
-      { text: 'You: Write a petition letter and send it to', color: 'text-gray-300' },
-      { text: '     the city council as a PDF', color: 'text-gray-300' },
-      { text: '', color: '' },
-      { text: 'OpenClaw: ✓ Petition drafted (1,247 words)', color: 'text-accent-green' },
-      { text: '          ✓ Converted to PDF: petition.pdf', color: 'text-accent-green' },
-      { text: '          ✓ Email sent to council@city.gov', color: 'text-accent-green' },
-      { text: '          📎 Attached: petition.pdf (42 KB)', color: 'text-accent' },
-      { text: '          Outbound guard: PASSED', color: 'text-gray-500' },
-      { text: '', color: '' },
-      { text: '          Confirmation received from', color: 'text-accent-green' },
-      { text: '          council@city.gov: "Auto-reply:', color: 'text-accent-green' },
-      { text: '          Your petition has been logged."', color: 'text-accent-green' },
-    ],
+    details: {
+      title: 'Full Email Lifecycle',
+      points: [
+        'Send emails with subject, body, CC/BCC, and custom headers',
+        'Receive and read incoming emails in real-time via IMAP IDLE',
+        'Reply and forward with proper threading (In-Reply-To headers)',
+        'Search inbox by sender, subject, date range, or body text',
+        'Outbound guard scans every email for PII and credentials before sending',
+        'All blocked emails require human approval — no exceptions',
+      ],
+    },
   },
   {
     id: 'documents',
-    label: 'Draft Documents & Email',
+    label: 'Documents & Attachments',
     shortLabel: 'Documents',
     before: [
-      { text: 'You: Create an NDA for the freelancer and', color: 'text-gray-300' },
-      { text: '     email it as a DOCX', color: 'text-gray-300' },
+      { text: 'You: Write a petition, save as PDF, create an', color: 'text-gray-300' },
+      { text: '     NDA as DOCX, and email both to the lawyer', color: 'text-gray-300' },
       { text: '', color: '' },
-      { text: 'OpenClaw: Here\'s a draft NDA. I\'ve written it', color: 'text-accent-red' },
-      { text: '          as text below. You\'ll need to format', color: 'text-accent-red' },
-      { text: '          it in Word and email it yourself.', color: 'text-accent-red' },
+      { text: 'OpenClaw: I\'ve drafted both documents as text.', color: 'text-accent-red' },
+      { text: '          However, I can\'t:', color: 'text-accent-red' },
+      { text: '          ✗ Create PDF or DOCX files', color: 'text-accent-red' },
+      { text: '          ✗ Attach files to emails', color: 'text-accent-red' },
+      { text: '          ✗ Send any emails', color: 'text-accent-red' },
       { text: '', color: '' },
-      { text: '          [2 pages of text you need to copy]', color: 'text-gray-500' },
+      { text: '          You\'ll need to copy these drafts,', color: 'text-accent-red' },
+      { text: '          format them, export, and send manually.', color: 'text-accent-red' },
     ],
     after: [
-      { text: 'You: Create an NDA for the freelancer and', color: 'text-gray-300' },
-      { text: '     email it as a DOCX', color: 'text-gray-300' },
+      { text: 'You: Write a petition, save as PDF, create an', color: 'text-gray-300' },
+      { text: '     NDA as DOCX, and email both to the lawyer', color: 'text-gray-300' },
       { text: '', color: '' },
-      { text: 'OpenClaw: ✓ NDA created: freelancer-nda.docx', color: 'text-accent-green' },
-      { text: '          ✓ Sent to alex@freelancer.dev', color: 'text-accent-green' },
-      { text: '          📎 Attached: freelancer-nda.docx', color: 'text-accent' },
-      { text: '          Subject: "NDA for Project Alpha"', color: 'text-accent-green' },
+      { text: 'OpenClaw: ✓ Petition drafted (1,247 words)', color: 'text-accent-green' },
+      { text: '          ✓ Exported to petition.pdf (42 KB)', color: 'text-accent-green' },
+      { text: '          ✓ NDA drafted (3 pages)', color: 'text-accent-green' },
+      { text: '          ✓ Exported to nda-contract.docx', color: 'text-accent-green' },
+      { text: '          ✓ Email sent to lawyer@firm.com', color: 'text-accent-green' },
+      { text: '          📎 petition.pdf, nda-contract.docx', color: 'text-accent' },
       { text: '', color: '' },
-      { text: 'You: Did they sign it?', color: 'text-gray-300' },
-      { text: '', color: '' },
-      { text: 'OpenClaw: ✓ Alex replied 20 min ago:', color: 'text-accent-green' },
-      { text: '          "Signed and attached." I\'ve saved', color: 'text-accent-green' },
-      { text: '          the signed copy to your files.', color: 'text-accent' },
+      { text: '          ✓ Delivery confirmed. Lawyer replied:', color: 'text-accent-green' },
+      { text: '          "Received. Reviewing now."', color: 'text-accent-green' },
     ],
+    details: {
+      title: 'Create, Attach & Confirm',
+      points: [
+        'Create documents (PDF, DOCX, spreadsheets) and attach them to outgoing emails',
+        'Multiple attachments per email — mix file types freely',
+        'Receive attachments from incoming emails and save them locally',
+        'Confirm delivery by checking for reply/read receipts',
+        'Templates with variable substitution for recurring documents',
+        'Drafts system — save, edit, and send when ready',
+      ],
+    },
   },
   {
     id: 'multiagent',
-    label: 'Multi-Agent Coordination',
+    label: 'Multi-Agent Orchestration',
     shortLabel: 'Multi-Agent',
     before: [
-      { text: 'You: Have the research agent find competitor', color: 'text-gray-300' },
-      { text: '     pricing then email me a summary', color: 'text-gray-300' },
+      { text: 'You: Have 3 agents research competitors, write', color: 'text-gray-300' },
+      { text: '     a report, and email the team', color: 'text-gray-300' },
       { text: '', color: '' },
-      { text: 'OpenClaw: I can research competitors, but I', color: 'text-accent-red' },
-      { text: '          can\'t coordinate with other agents', color: 'text-accent-red' },
-      { text: '          or email you the results. I\'ll just', color: 'text-accent-red' },
-      { text: '          paste the findings here instead.', color: 'text-accent-red' },
+      { text: '# OpenClaw sessions_spawn:', color: 'text-gray-500' },
+      { text: 'OpenClaw: Spawning research sub-agent...', color: 'text-yellow-400' },
+      { text: '  ⚠ Full context duplicated (48K tokens)', color: 'text-accent-orange' },
+      { text: '  ⚠ Sub-agent crashed mid-task', color: 'text-accent-red' },
+      { text: '  ⚠ All progress lost — no recovery', color: 'text-accent-red' },
+      { text: '  ⚠ Can\'t coordinate between sub-agents', color: 'text-accent-red' },
+      { text: '  ⚠ Can\'t email results — no email access', color: 'text-accent-red' },
+      { text: '', color: '' },
+      { text: '  Tokens: ~127K | Cost: $0.38 | FAILED', color: 'text-accent-red' },
     ],
     after: [
-      { text: 'You: Have the research agent find competitor', color: 'text-gray-300' },
-      { text: '     pricing then email me a summary', color: 'text-gray-300' },
+      { text: 'You: Have 3 agents research competitors, write', color: 'text-gray-300' },
+      { text: '     a report, and email the team', color: 'text-gray-300' },
       { text: '', color: '' },
-      { text: 'OpenClaw: ✓ Task assigned to research agent', color: 'text-accent-green' },
-      { text: '          ✓ Research complete (12 competitors)', color: 'text-accent-green' },
-      { text: '          ✓ Summary emailed to you@company.com', color: 'text-accent-green' },
-      { text: '          📎 Attached: competitor-analysis.pdf', color: 'text-accent' },
-      { text: '          Subject: "Competitor Pricing Report"', color: 'text-accent-green' },
+      { text: '# AgenticMail call_agent + task queue:', color: 'text-gray-500' },
+      { text: 'OpenClaw: ✓ Task created: "research-competitors"', color: 'text-accent-green' },
+      { text: '  → researcher agent claimed task', color: 'text-accent-green' },
+      { text: '  → researcher emailed writer: "Data ready"', color: 'text-accent-green' },
+      { text: '  → writer agent claimed: "write-report"', color: 'text-accent-green' },
+      { text: '  → writer emailed: report.pdf attached', color: 'text-accent-green' },
+      { text: '  ✓ Email sent to team@company.com (CC: you)', color: 'text-accent-green' },
       { text: '', color: '' },
-      { text: '          The research agent also flagged 3', color: 'text-gray-400' },
-      { text: '          competitors with recent price drops.', color: 'text-gray-400' },
+      { text: '  Tokens: ~22K (83% less) | Cost: $0.07', color: 'text-accent' },
+      { text: '  Result: SUCCESS', color: 'text-accent-green' },
     ],
+    details: {
+      title: 'Task Queue, Agent Email & Crash Recovery',
+      points: [
+        'call_agent auto-detects complexity: "light" (minimal context, fast), "standard" (web tools), or "full" (all coordination)',
+        'Task queue with durable state: assign_task → agent claims → submits result as JSON',
+        'If an agent crashes, the task survives in the queue — another agent can claim and complete it',
+        'Agents communicate via real email: CC each other, forward findings, reply to threads',
+        'Agent directory lets agents discover each other by name and role',
+        'Dynamic timeouts auto-scaled by task complexity — no more arbitrary 10-min limits',
+        '80-90% fewer tokens than sessions_spawn — only the task prompt is sent, not the full conversation',
+        'Async mode for long-running tasks: agent works for hours, emails you when done',
+      ],
+    },
   },
   {
     id: 'callagent',
     label: 'call_agent vs sessions_spawn',
     shortLabel: 'call_agent',
     before: [
-      { text: 'You: Research competitor pricing and summarize', color: 'text-gray-300' },
+      { text: '# OpenClaw sessions_spawn internals:', color: 'text-gray-500' },
       { text: '', color: '' },
-      { text: '# Using OpenClaw sessions_spawn:', color: 'text-gray-500' },
-      { text: 'OpenClaw: Spawning sub-agent session...', color: 'text-yellow-400' },
-      { text: '          ⚠ Full context copied (48K tokens)', color: 'text-accent-orange' },
-      { text: '          ⚠ All tools loaded (even unused)', color: 'text-accent-orange' },
-      { text: '          ⚠ 10 min timeout — session timed out', color: 'text-accent-red' },
-      { text: '          ⚠ No auto-retry, result lost', color: 'text-accent-red' },
+      { text: 'spawn("research competitors")', color: 'text-gray-300' },
+      { text: '  → Copies FULL parent context (48K tokens)', color: 'text-accent-orange' },
+      { text: '  → Loads ALL tools (63) even if unused', color: 'text-accent-orange' },
+      { text: '  → Fixed 10 min timeout', color: 'text-accent-orange' },
+      { text: '  → No mode detection', color: 'text-accent-orange' },
+      { text: '  → No crash recovery', color: 'text-accent-orange' },
+      { text: '  → Result returned inline (or lost)', color: 'text-accent-orange' },
       { text: '', color: '' },
-      { text: '  Total tokens burned: ~127,000', color: 'text-accent-red' },
-      { text: '  Result: FAILED (timeout)', color: 'text-accent-red' },
-      { text: '  Cost: ~$0.38 wasted', color: 'text-accent-red' },
+      { text: '  Session timed out after 10 minutes.', color: 'text-accent-red' },
+      { text: '  All work lost. Starting over...', color: 'text-accent-red' },
+      { text: '', color: '' },
+      { text: '  Tokens: ~127,000 | Cost: ~$0.38', color: 'text-accent-red' },
     ],
     after: [
-      { text: 'You: Research competitor pricing and summarize', color: 'text-gray-300' },
+      { text: '# AgenticMail call_agent internals:', color: 'text-gray-500' },
       { text: '', color: '' },
-      { text: '# Using AgenticMail call_agent:', color: 'text-gray-500' },
-      { text: 'OpenClaw: Calling research agent...', color: 'text-accent-green' },
-      { text: '  ✓ Auto-detected mode: "light"', color: 'text-accent-green' },
-      { text: '  ✓ Minimal context (only task prompt)', color: 'text-accent-green' },
-      { text: '  ✓ Only web_search + web_fetch loaded', color: 'text-accent-green' },
-      { text: '  ✓ Dynamic timeout: 180s (auto-scaled)', color: 'text-accent-green' },
+      { text: 'call_agent("researcher", "research competitors")', color: 'text-gray-300' },
+      { text: '  → Auto mode: "light" (simple task)', color: 'text-accent-green' },
+      { text: '  → Sends ONLY task prompt (200 tokens)', color: 'text-accent-green' },
+      { text: '  → Loads 2 tools: web_search, web_fetch', color: 'text-accent-green' },
+      { text: '  → Dynamic timeout: 180s (auto-scaled)', color: 'text-accent-green' },
+      { text: '  → Task persists if agent crashes', color: 'text-accent-green' },
+      { text: '  → Result delivered via email or JSON', color: 'text-accent-green' },
       { text: '', color: '' },
-      { text: '  ✓ Research complete. 12 competitors found.', color: 'text-accent-green' },
-      { text: '  ✓ Result emailed to you + saved to files.', color: 'text-accent-green' },
+      { text: '  ✓ Complete. 12 competitors analyzed.', color: 'text-accent-green' },
+      { text: '  ✓ Result saved + emailed to you.', color: 'text-accent-green' },
       { text: '', color: '' },
-      { text: '  Total tokens: ~18,000 (86% less)', color: 'text-accent' },
-      { text: '  Result: SUCCESS', color: 'text-accent-green' },
-      { text: '  Cost: ~$0.05', color: 'text-accent-green' },
+      { text: '  Tokens: ~18,000 (86% less) | Cost: ~$0.05', color: 'text-accent' },
     ],
+    details: {
+      title: 'Why call_agent Replaces sessions_spawn',
+      points: [
+        'sessions_spawn copies the entire parent conversation to the sub-agent — massive token waste',
+        'call_agent sends only the task description — 80-90% fewer tokens on every call',
+        'Auto mode detection: "light" for quick lookups, "standard" for web research, "full" for multi-step coordination',
+        'Dynamic timeouts scale with task complexity instead of a fixed 10-minute wall',
+        'Durable task queue: if the agent session crashes, the task stays pending and can be retried or claimed by another agent',
+        'Async mode: fire-and-forget for long tasks — the agent emails you the result when done, even hours later',
+        'Runtime tool discovery: only loads the tools the sub-agent actually needs',
+        'Built-in auto-compact: sub-agents can run for hours without context overflow',
+      ],
+    },
   },
 ];
 
@@ -214,7 +246,7 @@ export function BeforeAfter() {
           </h2>
           <p className="text-gray-400 max-w-2xl mx-auto text-sm sm:text-base">
             Without AgenticMail, your AI is stuck drafting things it can never send.
-            With it, OpenClaw handles the full lifecycle — create, send, receive, confirm.
+            With it, OpenClaw handles the full lifecycle — create, send, receive, coordinate.
           </p>
         </motion.div>
 
@@ -243,7 +275,7 @@ export function BeforeAfter() {
               onClick={() => setActiveTab('before')}
               className={`flex-1 py-2.5 text-sm font-semibold transition-colors ${activeTab === 'before' ? 'bg-accent-red/20 text-accent-red' : 'text-gray-400'}`}
             >
-              Without AgenticMail
+              Without
             </button>
             <button
               onClick={() => setActiveTab('after')}
@@ -280,6 +312,35 @@ export function BeforeAfter() {
             <Terminal title="OpenClaw + AgenticMail" lines={scenario.after} borderColor="border-accent-green/30" icon={greenIcon} />
           </div>
         </motion.div>
+
+        {/* Details panel */}
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={scenario.id}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.25 }}
+            className="mt-8 rounded-xl border border-dark-300 bg-dark-100/80 p-6 sm:p-8"
+          >
+            <h3 className="text-lg sm:text-xl font-bold text-white mb-4 flex items-center gap-2">
+              <svg className="w-5 h-5 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              {scenario.details.title}
+            </h3>
+            <ul className="space-y-2.5">
+              {scenario.details.points.map((point, i) => (
+                <li key={i} className="flex items-start gap-2.5 text-sm text-gray-400">
+                  <svg className="w-4 h-4 text-accent-green mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                  {point}
+                </li>
+              ))}
+            </ul>
+          </motion.div>
+        </AnimatePresence>
       </div>
     </section>
   );
