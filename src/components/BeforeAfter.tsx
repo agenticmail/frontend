@@ -258,7 +258,7 @@ export function BeforeAfter() {
             See the <span className="gradient-text">difference</span>
           </h2>
           <p className="text-gray-400 max-w-2xl mx-auto text-sm sm:text-base">
-            Without AgenticMail, your AI is stuck drafting things it can never send.
+            Without AgenticMail, your OpenClaw is stuck drafting things it can never send.
             With it, OpenClaw handles the full lifecycle — create, send, receive, coordinate.
           </p>
         </motion.div>
