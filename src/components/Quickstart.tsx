@@ -72,15 +72,15 @@ type Tab = 'openclaw' | 'openclaw-new' | 'mcp' | 'api';
 const tabs: { id: Tab; label: string; shortLabel: string; code: string; description: string }[] = [
   {
     id: 'openclaw',
-    label: 'Already have OpenClaw',
-    shortLabel: 'Existing User',
+    label: 'Already use OpenClaw?',
+    shortLabel: 'Already use OpenClaw?',
     code: existingUserCode,
     description: 'Add email & SMS to your existing OpenClaw setup in seconds.',
   },
   {
     id: 'openclaw-new',
-    label: 'New to OpenClaw',
-    shortLabel: 'New User',
+    label: 'New to OpenClaw?',
+    shortLabel: 'New to OpenClaw?',
     code: newUserCode,
     description: 'Full setup from scratch — OpenClaw + AgenticMail in under 5 minutes.',
   },
