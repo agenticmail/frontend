@@ -229,8 +229,8 @@ const greenIcon = <svg className="w-3 h-3 text-accent-green" fill="currentColor"
 
 export function BeforeAfter() {
   const [activeScenario, setActiveScenario] = useState(0);
-  const [activeTab, setActiveTab] = useState<'before' | 'after'>('after');
-  const [desktopHighlight, setDesktopHighlight] = useState<'before' | 'after'>('after');
+  const [activeTab, setActiveTab] = useState<'before' | 'after'>('before');
+  const [desktopHighlight, setDesktopHighlight] = useState<'before' | 'after'>('before');
   const scenario = scenarios[activeScenario];
   // Mobile uses activeTab, desktop uses desktopHighlight
   // Both default to 'after' so SSR is safe
@@ -268,7 +268,7 @@ export function BeforeAfter() {
           {scenarios.map((s, i) => (
             <button
               key={s.id}
-              onClick={() => { setActiveScenario(i); setActiveTab('after'); setDesktopHighlight('after'); }}
+              onClick={() => { setActiveScenario(i); setActiveTab('before'); setDesktopHighlight('before'); }}
               className={`px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all border ${
                 activeScenario === i
                   ? 'bg-accent/10 border-accent/40 text-white'
