@@ -1,7 +1,7 @@
 'use client';
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 type Line = { text: string; color: string };
 
@@ -229,8 +229,21 @@ const greenIcon = <svg className="w-3 h-3 text-accent-green" fill="currentColor"
 
 export function BeforeAfter() {
   const [activeScenario, setActiveScenario] = useState(0);
-  const [activeTab, setActiveTab] = useState<'before' | 'after'>('before');
+  const [activeTab, setActiveTab] = useState<'before' | 'after'>('after');
+  const [desktopHighlight, setDesktopHighlight] = useState<'before' | 'after'>('after');
   const scenario = scenarios[activeScenario];
+  // Mobile uses activeTab, desktop uses desktopHighlight
+  // Both default to 'after' so SSR is safe
+  const [isMobile, setIsMobile] = useState(false);
+  
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 640);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
+
+  const showEnabled = isMobile ? activeTab === 'after' : desktopHighlight === 'after';
 
   return (
     <section className="py-16 sm:py-24 px-4 sm:px-6 lg:px-8">
@@ -255,7 +268,7 @@ export function BeforeAfter() {
           {scenarios.map((s, i) => (
             <button
               key={s.id}
-              onClick={() => { setActiveScenario(i); setActiveTab('before'); }}
+              onClick={() => { setActiveScenario(i); setActiveTab('after'); setDesktopHighlight('after'); }}
               className={`px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all border ${
                 activeScenario === i
                   ? 'bg-accent/10 border-accent/40 text-white'
@@ -295,7 +308,7 @@ export function BeforeAfter() {
 
         {/* Desktop: side by side */}
         <motion.div key={scenario.id} initial={{ opacity: 0.8 }} animate={{ opacity: 1 }} className="hidden sm:grid grid-cols-2 gap-6">
-          <div>
+          <div className={`cursor-pointer transition-opacity ${desktopHighlight === 'before' ? 'opacity-100' : 'opacity-60 hover:opacity-80'}`} onClick={() => setDesktopHighlight('before')}>
             <div className="text-center mb-3">
               <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-accent-red">
                 {redIcon} Without AgenticMail
@@ -303,7 +316,7 @@ export function BeforeAfter() {
             </div>
             <Terminal title="OpenClaw" lines={scenario.before} borderColor="border-accent-red/30" icon={redIcon} />
           </div>
-          <div>
+          <div className={`cursor-pointer transition-opacity ${desktopHighlight === 'after' ? 'opacity-100' : 'opacity-60 hover:opacity-80'}`} onClick={() => setDesktopHighlight('after')}>
             <div className="text-center mb-3">
               <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-accent-green">
                 {greenIcon} With AgenticMail
@@ -316,25 +329,33 @@ export function BeforeAfter() {
         {/* Details panel */}
         <AnimatePresence mode="wait">
           <motion.div
-            key={scenario.id}
+            key={`${scenario.id}-${showEnabled}`}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.25 }}
-            className="mt-8 rounded-xl border border-dark-300 bg-dark-100/80 p-6 sm:p-8"
+            className={`mt-8 rounded-xl border ${showEnabled ? 'border-accent-green/30' : 'border-accent-red/30'} bg-dark-100/80 p-6 sm:p-8`}
           >
             <h3 className="text-lg sm:text-xl font-bold text-white mb-4 flex items-center gap-2">
-              <svg className="w-5 h-5 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              {scenario.details.title}
+              {showEnabled ? (
+                <svg className="w-5 h-5 text-accent-green" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
+              ) : (
+                <svg className="w-5 h-5 text-accent-red" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" /></svg>
+              )}
+              {showEnabled ? scenario.details.title : `Not available without AgenticMail`}
             </h3>
             <ul className="space-y-2.5">
               {scenario.details.points.map((point, i) => (
-                <li key={i} className="flex items-start gap-2.5 text-sm text-gray-400">
-                  <svg className="w-4 h-4 text-accent-green mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
+                <li key={i} className={`flex items-start gap-2.5 text-sm ${showEnabled ? 'text-gray-400' : 'text-gray-600 line-through'}`}>
+                  {showEnabled ? (
+                    <svg className="w-4 h-4 text-accent-green mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                  ) : (
+                    <svg className="w-4 h-4 text-accent-red mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                    </svg>
+                  )}
                   {point}
                 </li>
               ))}
