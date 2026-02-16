@@ -74,7 +74,7 @@ export function Hero() {
   const opacity = useTransform(scrollYProgress, [0, 0.8], [1, 0]);
 
   return (
-    <section ref={sectionRef} className="relative pt-32 pb-20 px-4 sm:px-6 lg:px-8 overflow-hidden">
+    <section ref={sectionRef} className="relative pt-20 sm:pt-32 pb-12 sm:pb-20 px-4 sm:px-6 lg:px-8 overflow-hidden">
       {/* Animated background gradient */}
       <div className="absolute inset-0 overflow-hidden">
         <motion.div
@@ -106,7 +106,7 @@ export function Hero() {
 
       <motion.div style={{ y, opacity }} className="relative max-w-5xl mx-auto text-center">
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 1, y: 0 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
         >
@@ -120,13 +120,13 @@ export function Hero() {
         </motion.div>
 
         <motion.h1
-          initial={{ opacity: 0, y: 30 }}
+          initial={{ opacity: 1, y: 0 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.1 }}
-          className="text-5xl sm:text-6xl lg:text-7xl font-extrabold leading-tight tracking-tight mb-6"
+          className="text-3xl sm:text-5xl lg:text-7xl font-extrabold leading-tight tracking-tight mb-4 sm:mb-6"
         >
           <motion.span
-            initial={{ opacity: 0, x: -20 }}
+            initial={{ opacity: 1, x: 0 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.6, delay: 0.15 }}
           >
@@ -134,7 +134,7 @@ export function Hero() {
           </motion.span>
           <motion.span
             className="gradient-text"
-            initial={{ opacity: 0, x: 20 }}
+            initial={{ opacity: 1, x: 0 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.6, delay: 0.3 }}
           >
@@ -143,17 +143,17 @@ export function Hero() {
         </motion.h1>
 
         <motion.p
-          initial={{ opacity: 0, y: 30 }}
+          initial={{ opacity: 1, y: 0 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.2 }}
-          className="text-lg sm:text-xl text-gray-400 max-w-2xl mx-auto mb-10 leading-relaxed"
+          className="text-base sm:text-xl text-gray-400 max-w-2xl mx-auto mb-6 sm:mb-10 leading-relaxed"
         >
           Open source email, SMS & multi-agent coordination.
           Send, receive, search, organize — with built-in security guardrails.
         </motion.p>
 
         <motion.div
-          initial={{ opacity: 0, y: 30 }}
+          initial={{ opacity: 1, y: 0 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.3 }}
           className="flex flex-col sm:flex-row items-center justify-center gap-4"
@@ -182,10 +182,10 @@ export function Hero() {
 
         {/* Terminal preview */}
         <motion.div
-          initial={{ opacity: 0, y: 40, scale: 0.95 }}
+          initial={{ opacity: 1, y: 0, scale: 1 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           transition={{ duration: 0.8, delay: 0.5 }}
-          className="mt-16 max-w-2xl mx-auto"
+          className="mt-8 sm:mt-16 max-w-2xl mx-auto"
         >
           <motion.div
             className="rounded-xl border border-dark-300 bg-dark-100 overflow-hidden shadow-2xl shadow-black/40"
