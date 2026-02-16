@@ -1,7 +1,7 @@
 'use client';
 
-import { motion, useScroll, useTransform } from 'framer-motion';
-import { useRef, useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
+import { useEffect, useState } from 'react';
 
 function TypingTerminal() {
   const lines = [
@@ -68,13 +68,8 @@ function TypingTerminal() {
 }
 
 export function Hero() {
-  const sectionRef = useRef(null);
-  const { scrollYProgress } = useScroll({ target: sectionRef, offset: ['start start', 'end start'] });
-  const y = useTransform(scrollYProgress, [0, 1], [0, 150]);
-  const opacity = useTransform(scrollYProgress, [0, 0.8], [1, 0]);
-
   return (
-    <section ref={sectionRef} className="relative pt-20 sm:pt-32 pb-12 sm:pb-20 px-4 sm:px-6 lg:px-8 overflow-hidden">
+    <section className="relative pt-20 sm:pt-32 pb-12 sm:pb-20 px-4 sm:px-6 lg:px-8 overflow-hidden">
       {/* Animated background gradient */}
       <div className="absolute inset-0 overflow-hidden">
         <motion.div
@@ -104,7 +99,7 @@ export function Hero() {
         ))}
       </div>
 
-      <motion.div style={{ y, opacity }} className="relative max-w-5xl mx-auto text-center">
+      <div className="relative max-w-5xl mx-auto text-center">
         <motion.div
           initial={{ opacity: 1, y: 0 }}
           animate={{ opacity: 1, y: 0 }}
@@ -201,7 +196,7 @@ export function Hero() {
             <TypingTerminal />
           </motion.div>
         </motion.div>
-      </motion.div>
+      </div>
     </section>
   );
 }
