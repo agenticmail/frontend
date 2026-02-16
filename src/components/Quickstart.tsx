@@ -3,15 +3,20 @@
 import { motion } from 'framer-motion';
 import { useState } from 'react';
 
-const existingUserCode = `# Already using OpenClaw? One line:
-openclaw skills add agenticmail
+const existingUserCode = `# Step 1: Install AgenticMail
+npm install -g agenticmail
 
-# Or add to your openclaw.yaml:
+# Step 2: Start the AgenticMail server (runs local mail server via Docker)
+agenticmail start
+
+# Step 3: Add to your openclaw.yaml
 skills:
   - agenticmail
 
-# Restart OpenClaw — 63 email/SMS tools ready.
-# Your agent can now send, receive, and manage email.`;
+# Step 4: Restart OpenClaw
+openclaw restart
+
+# Done — 63 email/SMS tools now available to your agent.`;
 
 const newUserCode = `# Step 1: Install OpenClaw
 npm install -g openclaw
@@ -19,13 +24,18 @@ npm install -g openclaw
 # Step 2: Start OpenClaw (creates config on first run)
 openclaw start
 
-# Step 3: Add AgenticMail
-openclaw skills add agenticmail
+# Step 3: Install & start AgenticMail
+npm install -g agenticmail
+agenticmail start
 
-# Step 4: Restart — your agent now has email & SMS
+# Step 4: Add AgenticMail skill to openclaw.yaml
+skills:
+  - agenticmail
+
+# Step 5: Restart OpenClaw
 openclaw restart
 
-# That's it. Your AI agent can now:
+# Your AI agent can now:
 # ✓ Send and receive real emails
 # ✓ Send and receive SMS
 # ✓ Coordinate with other agents
