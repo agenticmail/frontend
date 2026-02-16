@@ -125,7 +125,8 @@ export function Hero() {
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.6, delay: 0.15 }}
           >
-            Give your AI agents{' '}
+
+            Give your OpenClaw agent{' '}
           </motion.span>
           <motion.span
             className="gradient-text"
@@ -143,8 +144,8 @@ export function Hero() {
           transition={{ duration: 0.6, delay: 0.2 }}
           className="text-base sm:text-xl text-gray-400 max-w-2xl mx-auto mb-6 sm:mb-10 leading-relaxed"
         >
-          Open source email, SMS & multi-agent coordination.
-          Send, receive, search, organize — with built-in security guardrails.
+          Give your OpenClaw agent the power to send emails, receive replies, create PDFs,
+          sign up for services, send SMS — all with built-in security guardrails.
         </motion.p>
 
         <motion.div
