@@ -10,7 +10,9 @@ npx agenticmail@latest openclaw
 # ✓ Install AgenticMail
 # ✓ Start the mail server
 # ✓ Configure OpenClaw automatically
-# ✓ 63 email/SMS tools ready to use`;
+# ✓ 63 email/SMS tools ready to use
+#
+# Issues? https://github.com/agenticmail/agenticmail/issues`;
 
 const newUserCode = `# Step 1: Install and set up OpenClaw
 npm install -g openclaw
@@ -19,13 +21,25 @@ openclaw start
 # Step 2: Add AgenticMail
 npx agenticmail@latest setup
 
-# That's it. Your agent now has email & SMS.`;
+# That's it. Your agent now has email & SMS.
+#
+# Issues? https://github.com/agenticmail/agenticmail/issues`;
 
 const mcpCode = `# Step 1: Run setup
 npx agenticmail@latest setup
 
-# Step 2: Add this to your MCP client config
-# (Claude Desktop, Cursor, Windsurf, etc.)
+# Step 2: Add this to your MCP client config:
+#
+# Claude Desktop:
+#   ~/Library/Application Support/Claude/claude_desktop_config.json (Mac)
+#   %APPDATA%/Claude/claude_desktop_config.json (Windows)
+#
+# Cursor:
+#   .cursor/mcp.json in your project root
+#
+# Windsurf:
+#   ~/.codeium/windsurf/mcp_config.json
+
 {
   "mcpServers": {
     "agenticmail": {
@@ -35,8 +49,9 @@ npx agenticmail@latest setup
   }
 }
 
-# Step 3: Restart your MCP client to load the tools
-# 62 MCP tools available immediately.`;
+# Step 3: Restart your MCP client to load the 62 tools
+#
+# Issues? https://github.com/agenticmail/agenticmail/issues`;
 
 const apiCode = `# Step 1: Run setup
 npx agenticmail@latest setup
@@ -50,7 +65,9 @@ curl -X POST http://localhost:3210/api/email/send \\
     "text": "Sent programmatically!"
   }'
 
-# Full docs at http://localhost:3210/api/docs`;
+# Full docs at http://localhost:3210/api/docs
+#
+# Issues? https://github.com/agenticmail/agenticmail/issues`;
 
 type Tab = 'openclaw' | 'openclaw-new' | 'mcp' | 'api';
 
