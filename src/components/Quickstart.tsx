@@ -38,7 +38,7 @@ export function Quickstart() {
         </motion.div>
 
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 1, y: 0 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           whileHover={{ boxShadow: '0 0 60px rgba(88,166,255,0.06)' }}
