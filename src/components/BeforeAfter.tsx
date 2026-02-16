@@ -6,29 +6,29 @@ import { useState } from 'react';
 const beforeLines = [
   { text: 'You: Send an email to john@company.com', color: 'text-gray-300' },
   { text: '', color: '' },
-  { text: 'Agent: I don\'t have the ability to send emails.', color: 'text-accent-red' },
-  { text: '       I can help you draft one, but you\'ll need', color: 'text-accent-red' },
-  { text: '       to send it yourself through your email client.', color: 'text-accent-red' },
+  { text: 'OpenClaw: I don\'t have the ability to send emails.', color: 'text-accent-red' },
+  { text: '          I can help you draft one, but you\'ll', color: 'text-accent-red' },
+  { text: '          need to send it yourself.', color: 'text-accent-red' },
   { text: '', color: '' },
   { text: 'You: Check if anyone replied to my proposal', color: 'text-gray-300' },
   { text: '', color: '' },
-  { text: 'Agent: I\'m sorry, I don\'t have access to your', color: 'text-accent-red' },
-  { text: '       email inbox. You\'ll need to check manually.', color: 'text-accent-red' },
+  { text: 'OpenClaw: I don\'t have access to your email', color: 'text-accent-red' },
+  { text: '          inbox. You\'ll need to check manually.', color: 'text-accent-red' },
 ];
 
 const afterLines = [
   { text: 'You: Send an email to john@company.com', color: 'text-gray-300' },
   { text: '', color: '' },
-  { text: 'Agent: ✓ Email sent to john@company.com', color: 'text-accent-green' },
-  { text: '       Subject: "Q2 Partnership Proposal"', color: 'text-accent-green' },
-  { text: '       Outbound guard: PASSED (low risk)', color: 'text-gray-500' },
+  { text: 'OpenClaw: ✓ Email sent to john@company.com', color: 'text-accent-green' },
+  { text: '          Subject: "Q2 Partnership Proposal"', color: 'text-accent-green' },
+  { text: '          Outbound guard: PASSED (low risk)', color: 'text-gray-500' },
   { text: '', color: '' },
   { text: 'You: Check if anyone replied to my proposal', color: 'text-gray-300' },
   { text: '', color: '' },
-  { text: 'Agent: ✓ 2 replies found:', color: 'text-accent-green' },
-  { text: '       • John (2h ago): "Looks great, let\'s discuss"', color: 'text-accent-green' },
-  { text: '       • Sarah (45m ago): "Adding the team to CC"', color: 'text-accent-green' },
-  { text: '       I\'ve drafted a follow-up. Send it?', color: 'text-accent' },
+  { text: 'OpenClaw: ✓ 2 replies found:', color: 'text-accent-green' },
+  { text: '          • John (2h ago): "Looks great, let\'s discuss"', color: 'text-accent-green' },
+  { text: '          • Sarah (45m ago): "Adding the team to CC"', color: 'text-accent-green' },
+  { text: '          I\'ve drafted a follow-up. Send it?', color: 'text-accent' },
 ];
 
 function Terminal({ title, lines, borderColor, icon }: { title: string; lines: typeof beforeLines; borderColor: string; icon: React.ReactNode }) {
