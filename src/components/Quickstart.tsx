@@ -3,20 +3,14 @@
 import { motion } from 'framer-motion';
 import { useState } from 'react';
 
-const existingUserCode = `# Step 1: Install AgenticMail
-npm install -g agenticmail
+const existingUserCode = `# One command. That's it.
+npx agenticmail@latest openclaw
 
-# Step 2: Start the AgenticMail server (runs local mail server via Docker)
-agenticmail start
-
-# Step 3: Add to your openclaw.yaml
-skills:
-  - agenticmail
-
-# Step 4: Restart OpenClaw
-openclaw restart
-
-# Done — 63 email/SMS tools now available to your agent.`;
+# This will:
+# ✓ Install AgenticMail
+# ✓ Start the mail server
+# ✓ Configure OpenClaw automatically
+# ✓ 63 email/SMS tools ready to use`;
 
 const newUserCode = `# Step 1: Install OpenClaw
 npm install -g openclaw
@@ -24,16 +18,8 @@ npm install -g openclaw
 # Step 2: Start OpenClaw (creates config on first run)
 openclaw start
 
-# Step 3: Install & start AgenticMail
-npm install -g agenticmail
-agenticmail start
-
-# Step 4: Add AgenticMail skill to openclaw.yaml
-skills:
-  - agenticmail
-
-# Step 5: Restart OpenClaw
-openclaw restart
+# Step 3: Add AgenticMail (does everything automatically)
+npx agenticmail@latest openclaw
 
 # Your AI agent can now:
 # ✓ Send and receive real emails
@@ -41,7 +27,11 @@ openclaw restart
 # ✓ Coordinate with other agents
 # ✓ All with built-in security guardrails`;
 
-const mcpCode = `# For Claude Desktop, Cursor, or any MCP client:
+const mcpCode = `# Step 1: Run setup
+npx agenticmail@latest setup
+
+# Step 2: Add to your MCP client config
+# (Claude Desktop, Cursor, or any MCP client)
 {
   "mcpServers": {
     "agenticmail": {
@@ -53,8 +43,8 @@ const mcpCode = `# For Claude Desktop, Cursor, or any MCP client:
 
 # 62 MCP tools available immediately.`;
 
-const apiCode = `# Start the REST API server:
-npx agenticmail
+const apiCode = `# Start the server:
+npx agenticmail@latest setup
 
 # Send an email:
 curl -X POST http://localhost:3210/api/email/send \\
