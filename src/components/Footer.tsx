@@ -7,9 +7,7 @@ export function Footer() {
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-8 mb-8">
           <div>
             <div className="flex items-center gap-2 mb-4">
-              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-accent to-accent-purple flex items-center justify-center text-white font-bold text-xs">
-                A
-              </div>
+              <span className="text-2xl">🎀</span>
               <span className="font-bold text-white">AgenticMail</span>
             </div>
             <p className="text-sm text-gray-500">
@@ -45,7 +43,7 @@ export function Footer() {
         </div>
 
         <div className="border-t border-dark-300/50 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p className="text-sm text-gray-500">© 2025 AgenticMail. MIT Licensed.</p>
+          <p className="text-sm text-gray-500">&copy; 2025 AgenticMail. MIT Licensed.</p>
           <p className="text-sm text-gray-500">Built for the agent era.</p>
         </div>
       </div>
