@@ -7,7 +7,7 @@ export function CTA() {
     <section className="py-24 px-4 sm:px-6 lg:px-8 bg-dark-100/50">
       <div className="max-w-3xl mx-auto text-center">
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 1, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
         >

@@ -26,7 +26,7 @@ export function Quickstart() {
     <section id="quickstart" className="py-24 px-4 sm:px-6 lg:px-8 bg-dark-100/50">
       <div className="max-w-3xl mx-auto">
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 1, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           className="text-center mb-12"
@@ -38,7 +38,7 @@ export function Quickstart() {
         </motion.div>
 
         <motion.div
-          initial={{ opacity: 0, y: 30 }}
+          initial={{ opacity: 1, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           className="rounded-xl border border-dark-300 bg-dark overflow-hidden shadow-2xl shadow-black/40"
