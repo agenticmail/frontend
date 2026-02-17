@@ -4,6 +4,7 @@ import { Quickstart } from '@/components/Quickstart';
 import { Features } from '@/components/Features';
 import { Security } from '@/components/Security';
 import { Trust } from '@/components/Trust';
+import { LiveStats } from '@/components/LiveStats';
 import { CTA } from '@/components/CTA';
 import { Footer } from '@/components/Footer';
 import { Navbar } from '@/components/Navbar';
@@ -17,6 +18,7 @@ export default function Home() {
       <Quickstart />
       <Features />
       <Security />
+      <LiveStats />
       <Trust />
       <CTA />
       <Footer />
