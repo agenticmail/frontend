@@ -16,6 +16,31 @@ interface Release {
 
 const releases: Release[] = [
   {
+    version: '0.5.42',
+    date: '2026-02-17',
+    title: 'Full DBMS Storage + Enterprise Engine',
+    tag: 'major',
+    highlights: [
+      'agenticmail_storage: 28-action database management tool for agents',
+      '@agenticmail/enterprise@0.2.1 published to npm',
+      'Enterprise engine fully wired with auto-migration',
+      '38 built-in skills, 5 permission presets, 4 plan tiers',
+    ],
+    details: [
+      'DDL: create/alter/drop/clone/rename tables & columns',
+      'DML: insert/upsert/query/aggregate/update/delete/truncate',
+      'Indexing: create/list/drop/reindex with partial index support',
+      'Import/Export: JSON & CSV with conflict handling (skip/replace/error)',
+      'Raw SQL: guarded execution + EXPLAIN query plans',
+      'Maintenance: stats, vacuum, analyze',
+      'Query operators: $gt, $gte, $lt, $lte, $ne, $like, $ilike, $in, $not_in, $is_null, $between',
+      'Tables sandboxed per-agent (agt_) or shared (shared_)',
+      'Enterprise: versioned migration system for schema evolution',
+      'Enterprise: lazy-loaded engine routes with auto-initialization',
+      'Enterprise: REST API at /api/engine/* for all 8 subsystems',
+    ],
+  },
+  {
     version: '0.5.41',
     date: '2026-02-17',
     title: 'Live Telemetry Pipeline',

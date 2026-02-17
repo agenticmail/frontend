@@ -7,8 +7,8 @@ function TypingTerminal() {
   const lines = [
     { text: '$ npx agenticmail', color: 'text-gray-500', delay: 0 },
     { text: '✓ AgenticMail server started on port 2525', color: 'text-accent-green', delay: 800 },
-    { text: '✓ 62 OpenClaw tools registered', color: 'text-accent-green', delay: 1400 },
-    { text: '✓ 59 MCP tools available', color: 'text-accent-green', delay: 2000 },
+    { text: '✓ 63 OpenClaw tools registered', color: 'text-accent-green', delay: 1400 },
+    { text: '✓ 60 MCP tools available', color: 'text-accent-green', delay: 2000 },
     { text: '✓ REST API listening on :3210', color: 'text-accent-green', delay: 2600 },
     { text: 'Ready to send and receive emails', color: 'text-gray-500', delay: 3200 },
   ];
