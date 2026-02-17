@@ -17,6 +17,13 @@ export const metadata: Metadata = {
   creator: 'AgenticMail',
   publisher: 'AgenticMail',
   metadataBase: new URL('https://agenticmail.io'),
+  icons: {
+    icon: [
+      { url: '/favicon.svg', type: 'image/svg+xml' },
+      { url: '/favicon.ico', sizes: '32x32' },
+    ],
+    apple: '/apple-touch-icon.png',
+  },
   alternates: {
     canonical: 'https://agenticmail.io',
   },
