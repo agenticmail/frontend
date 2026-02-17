@@ -67,7 +67,7 @@ export function LiveStats() {
   const uniqueInstalls = stats?.totalInstalls || 0;
 
   return (
-    <section className="py-24 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
+    <section className="pt-8 pb-24 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
       {/* Background glow */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
         <div className="w-[600px] h-[600px] bg-accent/5 rounded-full blur-[120px]" />
@@ -96,14 +96,14 @@ export function LiveStats() {
           </p>
         </motion.div>
 
-        {/* Main stats cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+        {/* Main stats cards — single row on mobile, 3 cols on desktop */}
+        <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 mb-12">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ delay: 0.1 }}
-            className="bg-dark-100/80 border border-dark-300 rounded-xl p-8 text-center backdrop-blur-sm"
+            className="flex-1 bg-dark-100/80 border border-dark-300 rounded-xl p-6 sm:p-8 text-center backdrop-blur-sm"
           >
             <div className="text-4xl sm:text-5xl font-bold text-white mb-2 font-mono">
               <AnimatedCounter target={totalDownloads} />
@@ -121,7 +121,7 @@ export function LiveStats() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ delay: 0.2 }}
-            className="bg-dark-100/80 border border-dark-300 rounded-xl p-8 text-center backdrop-blur-sm"
+            className="flex-1 bg-dark-100/80 border border-dark-300 rounded-xl p-6 sm:p-8 text-center backdrop-blur-sm"
           >
             <div className="text-4xl sm:text-5xl font-bold text-accent mb-2 font-mono">
               <AnimatedCounter target={toolCalls} />
@@ -137,7 +137,7 @@ export function LiveStats() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ delay: 0.3 }}
-            className="bg-dark-100/80 border border-dark-300 rounded-xl p-8 text-center backdrop-blur-sm"
+            className="flex-1 bg-dark-100/80 border border-dark-300 rounded-xl p-6 sm:p-8 text-center backdrop-blur-sm"
           >
             <div className="text-4xl sm:text-5xl font-bold text-accent-green mb-2 font-mono">
               <AnimatedCounter target={uniqueInstalls} />

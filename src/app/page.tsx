@@ -14,11 +14,11 @@ export default function Home() {
     <main className="min-h-screen bg-dark overflow-x-hidden">
       <Navbar />
       <Hero />
+      <LiveStats />
       <BeforeAfter />
       <Quickstart />
       <Features />
       <Security />
-      <LiveStats />
       <Trust />
       <CTA />
       <Footer />
