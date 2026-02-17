@@ -64,12 +64,35 @@ export default async function handler(req: Request, context: Context) {
 
       const stats: Stats = JSON.parse(statsStr);
 
-      // Get npm download count (cached — refreshed by the POST handler)
+      // Get npm download count — try cache first, then fetch live
       let npmDownloads = 0;
       try {
         const npmStr = await store.get("npm-downloads");
-        if (npmStr) npmDownloads = JSON.parse(npmStr).total || 0;
+        if (npmStr) {
+          const cached = JSON.parse(npmStr);
+          npmDownloads = cached.total || 0;
+          // Refresh if cache is older than 1 hour
+          const cacheAge = Date.now() - new Date(cached.updated || 0).getTime();
+          if (cacheAge > 3600_000) npmDownloads = 0; // force refresh below
+        }
       } catch { /* ignore */ }
+
+      // Fetch live if no cached value
+      if (!npmDownloads) {
+        try {
+          const npmRes = await fetch("https://api.npmjs.org/downloads/point/2000-01-01:2099-12-31/agenticmail", {
+            signal: AbortSignal.timeout(3000),
+          });
+          if (npmRes.ok) {
+            const npmData = await npmRes.json() as any;
+            npmDownloads = npmData.downloads || 0;
+            await store.set("npm-downloads", JSON.stringify({
+              total: npmDownloads,
+              updated: new Date().toISOString(),
+            }));
+          }
+        } catch { /* best effort */ }
+      }
 
       // Top 10 tools
       const topTools = Object.entries(stats.toolCounts)
