@@ -53,12 +53,12 @@ export function LiveStats() {
       >
         <div className="bg-dark-100/60 border border-dark-300 rounded-xl px-4 py-4 sm:px-8 sm:py-5 backdrop-blur-sm flex items-center justify-between gap-2">
           {/* npm Downloads */}
-          <div className="flex-1 text-center">
+          <a href="https://www.npmjs.com/package/agenticmail" target="_blank" rel="noopener noreferrer" className="flex-1 text-center hover:opacity-80 transition-opacity cursor-pointer">
             <div className="text-xl sm:text-3xl font-bold text-white font-mono leading-tight">
               <AnimatedCounter target={totalDownloads} />
             </div>
             <div className="text-[10px] sm:text-xs text-gray-500 uppercase tracking-wider mt-0.5">Downloads</div>
-          </div>
+          </a>
 
           <div className="w-px h-8 sm:h-10 bg-dark-300" />
 
