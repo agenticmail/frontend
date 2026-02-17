@@ -16,6 +16,32 @@ interface Release {
 
 const releases: Release[] = [
   {
+    version: '0.5.43',
+    date: '2026-02-17',
+    title: 'Agentic Employee Foundation',
+    tag: 'major',
+    highlights: [
+      'Complete foundation for deploying AI agents as autonomous employees',
+      'agenticmail_storage: 28-action DBMS — persistent memory for agents',
+      '@agenticmail/enterprise@0.2.2: 9 engine systems, 38 skills, 10 DB backends',
+      '63 OpenClaw tools, 62 MCP tools, 44 shell commands',
+    ],
+    details: [
+      'Identity: real email + SMS + inter-agent messaging for every agent',
+      'Memory: agents create/query/manage their own database tables at runtime',
+      'Coordination: sync/async RPC, task lifecycle, push notifications',
+      'Enterprise: Skill Registry, Permission Engine, Deployment Engine, Lifecycle Manager',
+      'Enterprise: Knowledge Base (RAG), Multi-Tenant, Activity Tracker, Approval Workflows',
+      'Enterprise: Admin dashboard in 8 languages (HTML, PHP, Python, Ruby, Express, Go, Java, .NET)',
+      'Storage DDL: create/alter/drop/clone/rename tables and columns',
+      'Storage DML: insert/upsert/query/aggregate/update/delete/truncate',
+      'Storage indexing: create/list/drop/reindex with partial index support',
+      'Storage import/export: JSON and CSV with conflict handling',
+      'Versioned migration system for safe schema evolution across upgrades',
+      'All tool counts, REFERENCE.md, SKILL.md updated and consistent',
+    ],
+  },
+  {
     version: '0.5.42',
     date: '2026-02-17',
     title: 'Full DBMS Storage + Enterprise Engine',
