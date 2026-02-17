@@ -9,6 +9,7 @@ export function Navbar() {
     { label: 'Features', href: '#features' },
     { label: 'Security', href: '#security' },
     { label: 'Quickstart', href: '#quickstart' },
+    { label: 'Releases', href: '/releases' },
     { label: 'GitHub', href: 'https://github.com/agenticmail/agenticmail', external: true },
   ];
 
