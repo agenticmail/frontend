@@ -320,6 +320,39 @@ export default async function handler(
     });
   }
 
+  // ─── Delete Domain Registration ────────────────
+
+  if (path === "/v1/domains/delete" && req.method === "POST") {
+    let body: any;
+    try {
+      body = await req.json();
+    } catch {
+      return json({ error: "Invalid JSON body" }, 400);
+    }
+
+    if (!body?.domain || !body?.deploymentKey) {
+      return json(
+        { error: "Missing required fields: domain, deploymentKey" },
+        400
+      );
+    }
+
+    const domain = String(body.domain).toLowerCase().trim();
+    const record = await getDomain(domain);
+
+    if (!record) {
+      return json({ error: "Domain is not registered" }, 404);
+    }
+
+    const match = await compareKey(body.deploymentKey, record.keyHash);
+    if (!match) return json({ error: "Invalid deployment key" }, 403);
+
+    const store = getStore(STORE_NAME);
+    await store.delete(`domain:${domain}`);
+
+    return json({ success: true, deleted: domain });
+  }
+
   // ─── Domain Status (public) ───────────────────
 
   if (path.match(/^\/v1\/domains\/[^/]+\/status$/) && req.method === "GET") {
