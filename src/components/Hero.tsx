@@ -7,15 +7,16 @@ function TypingTerminal() {
   const lines = [
     { text: '$ npx @agenticmail/enterprise', color: 'text-gray-500', delay: 0 },
     { text: '', color: '', delay: 600 },
-    { text: '  Database: Supabase (auto-optimized)', color: 'text-accent', delay: 800 },
-    { text: '  ✓ Smart pooler detected — transaction mode (6543)', color: 'text-accent-green', delay: 1400 },
-    { text: '  ✓ Direct URL generated for migrations', color: 'text-accent-green', delay: 1800 },
+    { text: '  Deploy target: AgenticMail Cloud (free)', color: 'text-accent', delay: 800 },
+    { text: '  Subdomain: acme.agenticmail.io', color: 'text-accent', delay: 1400 },
+    { text: '  ✓ Database provisioned', color: 'text-accent-green', delay: 1800 },
     { text: '  ✓ Schema migrated (32 tables)', color: 'text-accent-green', delay: 2200 },
-    { text: '', color: '', delay: 2600 },
-    { text: '  52 skills · 270+ tools · 145 SaaS adapters', color: 'text-gray-400', delay: 2800 },
-    { text: '  Dashboard: http://localhost:3000', color: 'text-accent-purple', delay: 3200 },
-    { text: '', color: '', delay: 3600 },
-    { text: '  ✓ Ready. Create your first agent →', color: 'text-accent-green', delay: 3800 },
+    { text: '  ✓ Admin account created', color: 'text-accent-green', delay: 2600 },
+    { text: '', color: '', delay: 3000 },
+    { text: '  52 skills · 270+ tools · 145 SaaS integrations', color: 'text-gray-400', delay: 3200 },
+    { text: '  Dashboard: https://acme.agenticmail.io', color: 'text-accent-purple', delay: 3600 },
+    { text: '', color: '', delay: 4000 },
+    { text: '  ✓ Live! Create your first agent →', color: 'text-accent-green', delay: 4200 },
   ];
 
   const [visibleLines, setVisibleLines] = useState(0);
@@ -81,7 +82,7 @@ export function Hero() {
             >
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-dark-300 bg-dark-100/50 mb-6 text-xs text-gray-400">
                 <span className="w-1.5 h-1.5 rounded-full bg-accent-green animate-pulse" />
-                Open Source · MIT Licensed · Self-hosted
+                Free Cloud Deploy · Open Source · MIT Licensed
               </div>
             </motion.div>
 
