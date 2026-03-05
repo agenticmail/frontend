@@ -25,11 +25,12 @@ const capabilities = [
     border: 'border-green-500/20',
   },
   {
-    title: 'Voice & Meetings',
-    desc: 'Agents join Google Meet with voice (ElevenLabs TTS), listen, and participate through virtual audio.',
-    items: ['ElevenLabs TTS', 'Virtual audio device', 'Meeting transcription', 'Browser-based join'],
+    title: '🎙️ Voice & Live Meetings',
+    desc: 'Agents join Google Meet calls and speak like real humans using ElevenLabs TTS. They listen to the conversation, understand context, and respond with natural voice — in real-time.',
+    items: ['Google Meet join', 'Real-time voice (TTS)', 'Listen & respond', 'Virtual audio device', 'Meeting transcription', 'Multi-agent meetings'],
     gradient: 'from-orange-500/10 to-orange-600/5',
-    border: 'border-orange-500/20',
+    border: 'border-orange-500/30',
+    featured: true,
   },
   {
     title: 'Shell & Filesystem',
@@ -73,7 +74,7 @@ export function AgentCapabilities() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: i * 0.08 }}
-              className={`p-5 rounded-xl border ${cap.border} bg-gradient-to-br ${cap.gradient} hover:border-opacity-40 transition-all`}
+              className={`p-5 rounded-xl border ${cap.border} bg-gradient-to-br ${cap.gradient} hover:border-opacity-40 transition-all ${'featured' in cap && cap.featured ? 'ring-1 ring-orange-500/20' : ''}`}
             >
               <h3 className="text-base font-semibold text-white mb-2">{cap.title}</h3>
               <p className="text-sm text-gray-400 leading-relaxed mb-3">{cap.desc}</p>
@@ -85,6 +86,41 @@ export function AgentCapabilities() {
             </motion.div>
           ))}
         </div>
+
+        {/* Voice & Meetings spotlight */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          className="mt-8 p-6 rounded-xl border-2 border-orange-500/30 bg-gradient-to-r from-orange-500/5 via-dark-100/50 to-amber-500/5 relative overflow-hidden"
+        >
+          <div className="absolute top-0 right-0 bg-orange-500 text-black text-[10px] font-bold px-3 py-1 rounded-bl-lg">
+            INDUSTRY FIRST
+          </div>
+          <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
+            <div className="flex-1">
+              <h3 className="text-xl font-bold text-white mb-2">🎙️ Agents join Google Meet and speak like humans</h3>
+              <p className="text-sm text-gray-400 leading-relaxed">
+                Your AI agents don&apos;t just send emails — they <strong className="text-white">join live Google Meet calls</strong>, listen to the conversation in real-time,
+                and respond with natural human-like voice powered by ElevenLabs TTS. They participate in standups, client calls, team syncs, and interviews
+                just like any other team member. Multiple agents can join the same call and collaborate.
+              </p>
+              <div className="flex flex-wrap gap-2 mt-3">
+                {['Join via browser', 'ElevenLabs voice', 'Real-time listening', 'Context-aware responses', 'Multi-agent calls', 'Meeting notes'].map(tag => (
+                  <span key={tag} className="text-[11px] text-orange-400/80 bg-orange-500/10 px-2 py-0.5 rounded">{tag}</span>
+                ))}
+              </div>
+            </div>
+            <div className="font-mono text-xs text-gray-400 bg-dark-200/80 rounded-lg px-4 py-3 whitespace-pre shrink-0 leading-relaxed">
+              <span className="text-orange-400">Agent Fola</span> joined the meeting{'\n'}
+              <span className="text-gray-500">Listening...</span>{'\n'}
+              <span className="text-orange-400">Fola:</span> &quot;Based on last week&apos;s{'\n'}
+              metrics, I&apos;d recommend we{'\n'}
+              focus on retention this sprint.&quot;{'\n'}
+              <span className="text-green-500">🎤 Speaking via ElevenLabs TTS</span>
+            </div>
+          </div>
+        </motion.div>
 
         {/* Google Workspace callout */}
         <motion.div

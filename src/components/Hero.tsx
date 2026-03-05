@@ -103,7 +103,7 @@ export function Hero() {
               className="text-lg text-gray-400 leading-relaxed mb-8 max-w-lg"
             >
               Each agent gets their own email, calendar, browser, tools, memory, and identity.
-              Enterprise-grade governance, DLP, compliance, and multi-tenant isolation — all built in.
+              They join Google Meet calls and speak like humans. Enterprise-grade governance, DLP, compliance, and multi-tenant isolation — all built in.
             </motion.p>
 
             <motion.div
