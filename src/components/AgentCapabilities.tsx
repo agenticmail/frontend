@@ -5,8 +5,8 @@ import { motion } from 'framer-motion';
 const capabilities = [
   {
     title: 'Real Email & Calendar',
-    desc: 'Full Gmail/Outlook integration via OAuth. Agents read, respond, draft, and manage email. Google Calendar for scheduling.',
-    items: ['16 Gmail tools', 'Calendar CRUD', 'Signature management', 'Attachment handling'],
+    desc: 'Full Gmail + Outlook integration via OAuth. 20 Outlook Mail tools, 16 Gmail tools, dual calendar support, auto-reply, rules, categories.',
+    items: ['Gmail + Outlook', 'Calendar CRUD', 'Mail rules & auto-reply', 'Attachment handling'],
     gradient: 'from-blue-500/10 to-blue-600/5',
     border: 'border-blue-500/20',
   },
@@ -62,7 +62,7 @@ export function AgentCapabilities() {
             Agents that actually <span className="gradient-text">do things</span>
           </h2>
           <p className="text-gray-400 max-w-xl mx-auto">
-            Not just chat. Real email, real browser, real meetings, real tools. 270+ tools across every category.
+            Not just chat. Real email, real browser, real meetings, real tools. 370+ tools across Google Workspace and Microsoft 365.
           </p>
         </motion.div>
 
@@ -122,23 +122,42 @@ export function AgentCapabilities() {
           </div>
         </motion.div>
 
-        {/* Google Workspace callout */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 1 }}
-          viewport={{ once: true }}
-          className="mt-8 p-5 rounded-xl border border-dark-300/30 bg-dark-100/30"
-        >
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <h3 className="text-base font-semibold text-white mb-1">Full Google Workspace Integration</h3>
-              <p className="text-sm text-gray-400">13 services: Gmail · Calendar · Drive · Docs · Sheets · Slides · Forms · Meet · Chat · Tasks · Contacts · Maps · Voice</p>
+        {/* Google + Microsoft callout */}
+        <div className="grid md:grid-cols-2 gap-4 mt-8">
+          <motion.div
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            viewport={{ once: true }}
+            className="p-5 rounded-xl border border-dark-300/30 bg-dark-100/30"
+          >
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <h3 className="text-base font-semibold text-white mb-1">Google Workspace</h3>
+                <p className="text-sm text-gray-400">13 services: Gmail · Calendar · Drive · Docs · Sheets · Slides · Forms · Meet · Chat · Tasks · Contacts · Maps · Voice</p>
+              </div>
+              <div className="text-xs text-gray-500 bg-dark-200/50 px-3 py-1.5 rounded-lg font-mono">
+                OAuth 2.0
+              </div>
             </div>
-            <div className="text-xs text-gray-500 bg-dark-200/50 px-3 py-1.5 rounded-lg font-mono">
-              OAuth 2.0 · Auto-refresh tokens
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            viewport={{ once: true }}
+            className="p-5 rounded-xl border border-blue-500/20 bg-gradient-to-br from-blue-500/5 to-dark-100/30"
+          >
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <h3 className="text-base font-semibold text-white mb-1">Microsoft 365</h3>
+                <p className="text-sm text-gray-400">13 services: Outlook Mail · Calendar · OneDrive · Teams · Excel · SharePoint · OneNote · To Do · Contacts · PowerPoint · Planner · Power BI</p>
+              </div>
+              <div className="text-xs text-gray-500 bg-dark-200/50 px-3 py-1.5 rounded-lg font-mono">
+                97 tools
+              </div>
             </div>
-          </div>
-        </motion.div>
+          </motion.div>
+        </div>
       </div>
     </section>
   );

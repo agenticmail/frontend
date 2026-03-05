@@ -13,7 +13,7 @@ function TypingTerminal() {
     { text: '  ✓ Schema migrated (32 tables)', color: 'text-accent-green', delay: 2200 },
     { text: '  ✓ Admin account created', color: 'text-accent-green', delay: 2600 },
     { text: '', color: '', delay: 3000 },
-    { text: '  52 skills · 270+ tools · 145 SaaS integrations', color: 'text-gray-400', delay: 3200 },
+    { text: '  52 skills · 370+ tools · Google + Microsoft 365', color: 'text-gray-400', delay: 3200 },
     { text: '  Dashboard: https://acme.agenticmail.io', color: 'text-accent-purple', delay: 3600 },
     { text: '', color: '', delay: 4000 },
     { text: '  ✓ Live! Create your first agent →', color: 'text-accent-green', delay: 4200 },
@@ -48,9 +48,9 @@ function TypingTerminal() {
 
 const stats = [
   { value: '770+', label: 'Source Files' },
-  { value: '270+', label: 'Agent Tools' },
+  { value: '370+', label: 'Agent Tools' },
   { value: '145', label: 'SaaS Integrations' },
-  { value: '10', label: 'Database Backends' },
+  { value: '26', label: 'Productivity Services' },
 ];
 
 export function Hero() {
