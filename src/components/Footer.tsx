@@ -3,6 +3,7 @@
 const links = {
   Product: [
     { label: 'Features', href: '#features' },
+    { label: 'Trading', href: '#trading' },
     { label: 'Integrations', href: '#integrations' },
     { label: 'Open Source', href: '#open-source' },
     { label: 'Releases', href: '/releases' },

@@ -7,6 +7,7 @@ export function Navbar() {
   const [open, setOpen] = useState(false);
   const links = [
     { label: 'Features', href: '#features' },
+    { label: 'Trading', href: '#trading' },
     { label: 'Integrations', href: '#integrations' },
     { label: 'Open Source', href: '#open-source' },
     { label: 'Docs', href: 'https://github.com/agenticmail/enterprise#readme', external: true },

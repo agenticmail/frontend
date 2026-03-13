@@ -3,6 +3,7 @@ import { Hero } from '@/components/Hero';
 import { HowItWorks } from '@/components/HowItWorks';
 import { DashboardPreview } from '@/components/DashboardPreview';
 import { AgentCapabilities } from '@/components/AgentCapabilities';
+import { PolymarketTrading } from '@/components/PolymarketTrading';
 import { EnterpriseFeatures } from '@/components/EnterpriseFeatures';
 import { Integrations } from '@/components/Integrations';
 import { OpenSource } from '@/components/OpenSource';
@@ -17,6 +18,7 @@ export default function Home() {
       <HowItWorks />
       <DashboardPreview />
       <AgentCapabilities />
+      <PolymarketTrading />
       <EnterpriseFeatures />
       <Integrations />
       <OpenSource />
