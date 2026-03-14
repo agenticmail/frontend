@@ -1,8 +1,8 @@
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Releases — AgenticMail',
-  description: 'Release notes and changelog for AgenticMail',
+  title: 'Releases & Changelog — AgenticMail AI Agent Platform',
+  description: 'Release notes, changelog, and version history for AgenticMail — the AI agent workforce platform with autonomous Polymarket trading, 126+ tools, Google Workspace, Microsoft 365, and 145 SaaS integrations.',
 };
 
 interface Release {

@@ -197,7 +197,7 @@ export function PolymarketTrading() {
           viewport={{ once: true }}
           className="mb-12"
         >
-          <h3 className="text-xl font-bold text-white mb-2 text-center">72+ purpose-built trading tools</h3>
+          <h3 className="text-xl font-bold text-white mb-2 text-center">126 purpose-built trading tools</h3>
           <p className="text-gray-500 text-sm text-center mb-6">Organized into 6 sub-skills that auto-load based on conversation context</p>
 
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
