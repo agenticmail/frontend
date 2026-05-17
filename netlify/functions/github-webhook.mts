@@ -204,7 +204,13 @@ async function generateReply(verb: string, args: string, thread: {
   }[verb] || "Summarize the thread.";
 
   const msg = await client.messages.create({
-    model: "claude-3-5-haiku-latest",
+    // claude-3-5-haiku-latest is the public-API alias; the OAuth beta
+    // surface (anthropic-beta: oauth-2025-04-20) rejects it with a
+    // 404 not_found_error because OAuth tokens are bound to the
+    // caller's Claude.ai entitlements and only see the 4.x model
+    // family. claude-haiku-4-5 is the cheap-and-fast option that
+    // both surfaces accept.
+    model: "claude-haiku-4-5",
     max_tokens: 1024,
     system: systemPrompt,
     messages: [
