@@ -851,77 +851,13 @@ async function notifyInstallation(kind: "created" | "deleted", installationId: n
       ].filter(Boolean).join("\n"),
     });
   }
-  // Welcome email to the installer themselves. Only on `created`. The
-  // installer's email isn't always exposed by the webhook payload (orgs
-  // hide it; users can mark it private), so we send to a synthetic
-  // GitHub no-reply address keyed by login. The send provider is
-  // responsible for refusing or bouncing if it can't deliver.
-  if (kind === "created") {
-    const installerEmail = record?.installerEmail
-      ?? record?.organizationBillingEmail
-      ?? (record?.installerLogin
-            ? `${record.installerLogin}@users.noreply.github.com`
-            : record?.account
-              ? `${record.account}@users.noreply.github.com`
-              : undefined);
-    const settingsUrl = record?.type === "Organization"
-      ? `https://github.com/organizations/${record.account}/settings/installations/${installationId}`
-      : `https://github.com/settings/installations/${installationId}`;
-    const repoScope = record?.repoSelection === "all"
-      ? "all repositories"
-      : `${Array.isArray(record?.repos) ? record.repos.length : 0} selected repositories`;
-    await postEmail({
-      to: installerEmail,
-      subject: "You've installed AgenticMail for GitHub 🎀",
-      text: renderWelcomeText({
-        accountLogin: record?.account ?? "your account",
-        accountType: record?.type ?? "account",
-        repoScope,
-        settingsUrl,
-      }),
-    });
-  }
-}
-
-// Inlined to avoid spinning a separate template file at runtime. Mirrors
-// github-app/templates/welcome-email.txt.
-function renderWelcomeText(p: { accountLogin: string; accountType: string; repoScope: string; settingsUrl: string }): string {
-  return [
-    `Hi there,`,
-    ``,
-    `AgenticMail for GitHub is now installed on ${p.accountLogin} (${p.accountType}), covering ${p.repoScope}. Your AI teammate is live.`,
-    ``,
-    `TRY IT IN 10 SECONDS`,
-    `Open any issue or pull request on a covered repo and leave a comment:`,
-    ``,
-    `    @agenticmail summarize`,
-    ``,
-    `The bot will react 👀, then post a 2-paragraph summary of the thread.`,
-    ``,
-    `WHAT ELSE IT DOES (free)`,
-    `  @agenticmail triage             suggest labels + priority`,
-    `  @agenticmail reply <prompt>     draft a follow-up comment`,
-    `  @agenticmail email <address>    send the thread to a real inbox`,
-    `  @agenticmail handoff to <agent> route it to another agent`,
-    `  @agenticmail link related       find related issues`,
-    ``,
-    `PAID ACTIONS (upgrade to enable)`,
-    `  @agenticmail close              close the issue or PR`,
-    `  @agenticmail merge              merge the PR (default: squash)`,
-    `  @agenticmail review             post a formal PR review`,
-    ``,
-    `New issues are triaged automatically and new pull requests are`,
-    `summarized automatically — no mention needed.`,
-    ``,
-    `MANAGE THIS INSTALL`,
-    `Add or remove repositories, or uninstall, from the App settings page:`,
-    `${p.settingsUrl}`,
-    ``,
-    `Questions? Reach us at support@agenticmail.io.`,
-    ``,
-    `— The AgenticMail team`,
-    `https://agenticmail.io`,
-  ].join("\n");
+  // No user-facing welcome email on install. The webhook payload doesn't
+  // expose a usable address for most installers (private GitHub emails are
+  // the default, and the <login>@users.noreply.github.com alias is
+  // write-only — every send guaranteed to bounce). The bot's value-prop is
+  // the @mention reply, not an inbound email. Users discover the commands
+  // via the auto-triage / auto-summary that fires on their first issue or
+  // PR after install. Mirrors uninstall, which is also ops-only.
 }
 
 // Provider-agnostic email send. Two paths:
