@@ -3,6 +3,12 @@ import { getStore } from "@netlify/blobs";
 import { createAppAuth } from "@octokit/auth-app";
 import { request } from "@octokit/request";
 import Anthropic from "@anthropic-ai/sdk";
+import {
+  parseMention,
+  PAID_VERB_SET,
+  helpMessage,
+  type MentionCommand,
+} from "./_lib/parse-mention.js";
 
 /**
  * AgenticMail for GitHub — webhook handler.
@@ -223,49 +229,10 @@ async function verifySignature(rawBody: string, signature: string | null, secret
   return diff === 0;
 }
 
-// ─── Mention parser ────────────────────────────────────────────────────────
-//
-// Per design.md §7.1: first-mention-wins, case-insensitive trigger, verb is
-// the first token after the mention, args are the rest of that line.
-
-interface MentionCommand {
-  verb: "summarize" | "triage" | "email" | "reply" | "handoff" | "link"
-      | "close" | "merge" | "review";
-  args: string;
-}
-
-// Free verbs — pure read + LLM-generated comment reply, no state changes.
-const FREE_VERBS = ["summarize", "triage", "email", "reply", "handoff", "link"];
-// Paid verbs — perform a state-changing GitHub action (close issue/PR,
-// merge PR, post a formal Pull Request Review). Gated by plan check.
-const PAID_VERBS = ["close", "merge", "review"];
-const VALID_VERBS = new Set([...FREE_VERBS, ...PAID_VERBS]);
-const PAID_VERB_SET = new Set(PAID_VERBS);
-
-function parseMention(body: string): MentionCommand | null {
-  if (!body || !body.toLowerCase().includes("@agenticmail")) return null;
-  // Anchor on the first @agenticmail and look at the rest of THAT line only.
-  const lines = body.split("\n");
-  for (const line of lines) {
-    const m = line.match(/(^|\s)@agenticmail\b\s*(.*)/i);
-    if (!m) continue;
-    const rest = (m[2] || "").trim();
-    if (rest.length === 0) return { verb: "summarize", args: "" };
-    const tokens = rest.split(/\s+/);
-    const first = tokens[0].toLowerCase();
-    if (VALID_VERBS.has(first)) {
-      let args = tokens.slice(1).join(" ").trim();
-      // "handoff to <name>" → strip the leading "to"
-      if (first === "handoff" && args.toLowerCase().startsWith("to ")) {
-        args = args.slice(3).trim();
-      }
-      return { verb: first as MentionCommand["verb"], args };
-    }
-    // No matching verb but mention present — default to summarize.
-    return { verb: "summarize", args: rest };
-  }
-  return null;
-}
+// Mention parser, free/paid verb sets, and help message all live in
+// ./_lib/parse-mention.ts so the unit-test suite can import them without
+// pulling in the Anthropic / Octokit / Netlify dependencies. See that
+// module for the design notes (first-mention-wins, paid-verb gating, etc).
 
 // ─── Installation-scoped Octokit auth ──────────────────────────────────────
 //
@@ -458,6 +425,16 @@ async function handleIssueComment(payload: any): Promise<void> {
   }).catch(() => {});
   const isPR = !!payload.issue.pull_request;
   const issueNumber = payload.issue.number;
+  // Unknown verb after the mention → post a usage comment so the user
+  // discovers the valid commands instead of silently getting a summary.
+  if (cmd.verb === "help") {
+    await request("POST /repos/{owner}/{repo}/issues/{issue_number}/comments", {
+      headers: { authorization: `token ${token}` },
+      owner, repo, issue_number: issueNumber,
+      body: helpMessage(),
+    }).catch(() => {});
+    return;
+  }
   // Plan gate for state-changing verbs. Repo owner login is the
   // Marketplace customer; we look up their plan and reject if they
   // are on Free.
@@ -557,6 +534,14 @@ async function handlePRReviewComment(payload: any): Promise<void> {
     comments: [{ user: payload.comment.user.login, body: payload.comment.body }],
     triggerUser: payload.comment.user.login,
   };
+  if (cmd.verb === "help") {
+    await request("POST /repos/{owner}/{repo}/issues/{issue_number}/comments", {
+      headers: { authorization: `token ${token}` },
+      owner, repo, issue_number: prNumber,
+      body: helpMessage(),
+    }).catch(() => {});
+    return;
+  }
   if (PAID_VERB_SET.has(cmd.verb)) {
     const accountLogin = payload.repository?.owner?.login;
     const plan = await getPlan(accountLogin);
@@ -641,6 +626,12 @@ async function handleInstallationCreated(payload: any): Promise<void> {
     type: payload.installation.account?.type,
     repoSelection: payload.installation.repository_selection,
     repos: (payload.repositories ?? []).map((r: any) => r.full_name),
+    // `sender` is the human who clicked install. `email` is only present
+    // if their GitHub email is public — for orgs we also try the
+    // organization_billing_email field on the installation account.
+    installerLogin: payload.sender?.login,
+    installerEmail: payload.sender?.email ?? undefined,
+    organizationBillingEmail: payload.installation.account?.organization_billing_email ?? undefined,
     installedAt: new Date().toISOString(),
   };
   await store.set(String(payload.installation.id), JSON.stringify(record)).catch(() => {});
@@ -682,34 +673,113 @@ async function notifyInstallation(kind: "created" | "deleted", installationId: n
       repoCount: Array.isArray(record?.repos) ? record.repos.length : undefined,
     },
   });
-  // Optional: ping an operator inbox via the AgenticMail HTTP API. We
-  // only attempt it if the env var is present, so the function stays
-  // self-contained when it isn't.
+  // Outbound email — generic over any provider that accepts POST JSON
+  // with a `to`/`subject`/`text` body. The env var AGENTICMAIL_SEND_URL
+  // is where we route — could be the AgenticMail SaaS, Resend, Postmark,
+  // a self-hosted SMTP relay, etc. If it isn't set, we just skip and the
+  // welcome path is a no-op without breaking anything.
   const apiKey = process.env.AGENTICMAIL_API_KEY;
   const opsTo = process.env.AGENTICMAIL_OPS_EMAIL;
-  if (!apiKey || !opsTo) return;
-  const subject = kind === "created"
-    ? `[github-app] new install: ${record?.account ?? installationId}`
-    : `[github-app] uninstall: ${record?.account ?? installationId}`;
-  const body = [
-    `Installation ID: ${installationId}`,
-    `Account: ${record?.account ?? "(unknown)"} (${record?.type ?? "?"})`,
-    `Repo selection: ${record?.repoSelection ?? "?"}`,
-    Array.isArray(record?.repos) ? `Repos (${record.repos.length}): ${record.repos.slice(0, 10).join(", ")}` : "",
-    `At: ${ts}`,
-  ].filter(Boolean).join("\n");
-  try {
-    await fetch("https://agenticmail.io/api/email/send", {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-api-key": apiKey,
-      },
-      body: JSON.stringify({ to: opsTo, subject, text: body }),
-    });
-  } catch {
-    /* notification is best-effort */
+  const sendUrl = process.env.AGENTICMAIL_SEND_URL;
+  if (!apiKey || !sendUrl) return;
+  const ops = {
+    to: opsTo,
+    subject: kind === "created"
+      ? `[github-app] new install: ${record?.account ?? installationId}`
+      : `[github-app] uninstall: ${record?.account ?? installationId}`,
+    text: [
+      `Installation ID: ${installationId}`,
+      `Account: ${record?.account ?? "(unknown)"} (${record?.type ?? "?"})`,
+      `Repo selection: ${record?.repoSelection ?? "?"}`,
+      Array.isArray(record?.repos) ? `Repos (${record.repos.length}): ${record.repos.slice(0, 10).join(", ")}` : "",
+      `At: ${ts}`,
+    ].filter(Boolean).join("\n"),
+  };
+  await postEmail(sendUrl, apiKey, ops).catch(() => {});
+  // Welcome email to the installer themselves. Only on `created`. The
+  // installer's email isn't always exposed by the webhook payload (orgs
+  // hide it; users can mark it private), so we send to a synthetic
+  // GitHub no-reply address keyed by login + the public account
+  // `organization_billing_email` if available. The send-url provider is
+  // responsible for refusing if it can't deliver.
+  if (kind === "created") {
+    const installerEmail = record?.installerEmail
+      ?? record?.organizationBillingEmail
+      ?? `${record?.account}@users.noreply.github.com`;
+    const settingsUrl = record?.type === "Organization"
+      ? `https://github.com/organizations/${record.account}/settings/installations/${installationId}`
+      : `https://github.com/settings/installations/${installationId}`;
+    const repoScope = record?.repoSelection === "all"
+      ? "all repositories"
+      : `${Array.isArray(record?.repos) ? record.repos.length : 0} selected repositories`;
+    const welcome = {
+      to: installerEmail,
+      subject: "You've installed AgenticMail for GitHub 🎀",
+      text: renderWelcomeText({
+        accountLogin: record?.account ?? "your account",
+        accountType: record?.type ?? "account",
+        repoScope,
+        settingsUrl,
+      }),
+    };
+    await postEmail(sendUrl, apiKey, welcome).catch(() => {});
   }
+}
+
+// Inlined to avoid spinning a separate template file at runtime. Mirrors
+// github-app/templates/welcome-email.txt.
+function renderWelcomeText(p: { accountLogin: string; accountType: string; repoScope: string; settingsUrl: string }): string {
+  return [
+    `Hi there,`,
+    ``,
+    `AgenticMail for GitHub is now installed on ${p.accountLogin} (${p.accountType}), covering ${p.repoScope}. Your AI teammate is live.`,
+    ``,
+    `TRY IT IN 10 SECONDS`,
+    `Open any issue or pull request on a covered repo and leave a comment:`,
+    ``,
+    `    @agenticmail summarize`,
+    ``,
+    `The bot will react 👀, then post a 2-paragraph summary of the thread.`,
+    ``,
+    `WHAT ELSE IT DOES (free)`,
+    `  @agenticmail triage             suggest labels + priority`,
+    `  @agenticmail reply <prompt>     draft a follow-up comment`,
+    `  @agenticmail email <address>    send the thread to a real inbox`,
+    `  @agenticmail handoff to <agent> route it to another agent`,
+    `  @agenticmail link related       find related issues`,
+    ``,
+    `PAID ACTIONS (upgrade to enable)`,
+    `  @agenticmail close              close the issue or PR`,
+    `  @agenticmail merge              merge the PR (default: squash)`,
+    `  @agenticmail review             post a formal PR review`,
+    ``,
+    `New issues are triaged automatically and new pull requests are`,
+    `summarized automatically — no mention needed.`,
+    ``,
+    `MANAGE THIS INSTALL`,
+    `Add or remove repositories, or uninstall, from the App settings page:`,
+    `${p.settingsUrl}`,
+    ``,
+    `Questions? Reach us at support@agenticmail.io.`,
+    ``,
+    `— The AgenticMail team`,
+    `https://agenticmail.io`,
+  ].join("\n");
+}
+
+async function postEmail(url: string, apiKey: string, payload: { to?: string; subject: string; text: string }): Promise<void> {
+  if (!payload.to) return;
+  await fetch(url, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-api-key": apiKey,
+      // Some providers (Resend, Postmark) use Bearer instead. Send both;
+      // unknown headers are ignored.
+      "authorization": `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify(payload),
+  });
 }
 
 // ─── Paid action handlers ──────────────────────────────────────────────────
