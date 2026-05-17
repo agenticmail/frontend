@@ -51,7 +51,17 @@ const INSTALL_STORE = "github-installations";
 const AUDIT_STORE = "github-webhook-audit";
 const RATE_STORE = "github-rate-limit";
 const BILLING_STORE = "github-billing";
+const USAGE_STORE = "github-usage";
 const DEDUP_TTL_MS = 5 * 60 * 1000;
+
+// Anthropic public pricing for claude-haiku-4-5 (rates in cents per token).
+// Adjust here when Anthropic publishes new rates — single source of truth
+// referenced by both generateReply (writes the usage entry) and the
+// /api/github/usage aggregator (re-computes if a deployment was on a
+// different model previously). Numbers below are $1/MTok in, $5/MTok out.
+const HAIKU_INPUT_CENTS_PER_TOKEN = 0.0001;
+const HAIKU_OUTPUT_CENTS_PER_TOKEN = 0.0005;
+const MODEL = "claude-haiku-4-5";
 
 // Per-installation rate limit. The bot is free, but Anthropic inference
 // isn't — a runaway loop or abuse could drain the OAuth quota attached to
@@ -88,6 +98,47 @@ async function writeAudit(entry: AuditEntry): Promise<void> {
     const store = getStore(AUDIT_STORE);
     const day = entry.ts.slice(0, 10); // YYYY-MM-DD
     const key = `${day}/${entry.deliveryId || `unknown-${Date.now()}`}`;
+    await store.set(key, JSON.stringify(entry));
+  } catch {
+    /* never throw from the logger */
+  }
+}
+
+// ─── Usage / cost telemetry ────────────────────────────────────────────────
+//
+// One blob per Anthropic call, keyed by `<YYYY-MM-DD>/<account>/<deliveryId>`.
+// The /api/github/usage endpoint lists by day-and-account prefix to compute
+// rolling spend per installation. Without this we have no way to price the
+// service rationally — Anthropic charges per token, but customers pay flat
+// rate, so unit-economics visibility is non-negotiable before launch.
+
+interface UsageEntry {
+  ts: string;
+  account: string;
+  installationId?: number;
+  deliveryId?: string;
+  verb: string;
+  model: string;
+  inputTokens: number;
+  outputTokens: number;
+  costCents: number;
+}
+
+function estimateCostCents(inputTokens: number, outputTokens: number): number {
+  const raw = inputTokens * HAIKU_INPUT_CENTS_PER_TOKEN
+            + outputTokens * HAIKU_OUTPUT_CENTS_PER_TOKEN;
+  // Round to 4 decimal places (0.0001 ¢ = $0.000001) — enough to add up
+  // accurately across millions of calls without integer overflow.
+  return Math.round(raw * 10_000) / 10_000;
+}
+
+async function writeUsage(entry: UsageEntry): Promise<void> {
+  try {
+    const store = getStore(USAGE_STORE);
+    const day = entry.ts.slice(0, 10);
+    const safeAccount = (entry.account || "unknown").toLowerCase();
+    const safeDelivery = entry.deliveryId || `nodelivery-${Date.now()}`;
+    const key = `${day}/${safeAccount}/${safeDelivery}`;
     await store.set(key, JSON.stringify(entry));
   } catch {
     /* never throw from the logger */
@@ -261,7 +312,7 @@ async function getInstallationToken(installationId: number): Promise<string> {
 // mapping (installation.account.login → that org's claimed subdomain) for
 // per-customer agent personas + memory.
 
-async function generateReply(verb: string, args: string, thread: {
+interface ThreadCtx {
   repo: string;
   kind: "issue" | "pull_request";
   number: number;
@@ -269,7 +320,24 @@ async function generateReply(verb: string, args: string, thread: {
   body: string;
   comments: Array<{ user: string; body: string }>;
   triggerUser: string;
-}): Promise<string> {
+  // Optional PR file diffs. Populated by handlers that fetch them via the
+  // pulls/N/files endpoint. Each file's patch is truncated to ~40 lines.
+  prFiles?: Array<{
+    filename: string;
+    status: string;
+    additions: number;
+    deletions: number;
+    patch: string;
+  }>;
+}
+
+interface CallMeta {
+  account?: string;
+  installationId?: number;
+  deliveryId?: string;
+}
+
+async function generateReply(verb: string, args: string, thread: ThreadCtx, meta?: CallMeta): Promise<string> {
   // Prefer the OAuth token (sk-ant-oat01-…) since Ope's stack already
   // mints one for Claude Code; fall back to a classic API key
   // (sk-ant-api03-…) if that's what the operator provisioned. The SDK
@@ -298,6 +366,16 @@ async function generateReply(verb: string, args: string, thread: {
     "Always end your reply with: \"\\n\\n— [AgenticMail](https://agenticmail.io) · " + verb + "\"",
   ].join("\n");
 
+  const filesBlock = thread.prFiles && thread.prFiles.length > 0 ? [
+    `CHANGED FILES (${thread.prFiles.length}, first 40 lines of patch each):`,
+    ...thread.prFiles.map(f =>
+      [`- ${f.filename} (${f.status}, +${f.additions} -${f.deletions})`,
+       f.patch ? "```diff\n" + f.patch + "\n```" : "(binary or no patch)"
+      ].join("\n"),
+    ),
+    "",
+  ] : [];
+
   const threadStr = [
     `Repo: ${thread.repo}`,
     `${thread.kind === "issue" ? "Issue" : "Pull request"} #${thread.number}: ${thread.title}`,
@@ -305,6 +383,7 @@ async function generateReply(verb: string, args: string, thread: {
     "ORIGINAL POST:",
     thread.body || "(empty)",
     "",
+    ...filesBlock,
     ...(thread.comments.length > 0 ? [
       "COMMENT THREAD (oldest → newest):",
       ...thread.comments.map(c => `[@${c.user}]: ${c.body}`),
@@ -332,15 +411,60 @@ async function generateReply(verb: string, args: string, thread: {
     // caller's Claude.ai entitlements and only see the 4.x model
     // family. claude-haiku-4-5 is the cheap-and-fast option that
     // both surfaces accept.
-    model: "claude-haiku-4-5",
+    model: MODEL,
     max_tokens: 1024,
     system: systemPrompt,
     messages: [
       { role: "user", content: `${threadStr}\n\n---\n\n${verbInstruction}` },
     ],
   });
+  // Cost telemetry — fire-and-forget. The Anthropic SDK returns usage
+  // counts on every message; we record them keyed by account so the
+  // /api/github/usage aggregator can compute per-installation spend.
+  // If meta wasn't provided (e.g. a future caller that doesn't have an
+  // account context) we skip silently rather than failing the reply.
+  if (meta?.account && msg.usage) {
+    void writeUsage({
+      ts: new Date().toISOString(),
+      account: meta.account,
+      installationId: meta.installationId,
+      deliveryId: meta.deliveryId,
+      verb,
+      model: MODEL,
+      inputTokens: msg.usage.input_tokens ?? 0,
+      outputTokens: msg.usage.output_tokens ?? 0,
+      costCents: estimateCostCents(msg.usage.input_tokens ?? 0, msg.usage.output_tokens ?? 0),
+    });
+  }
   const block = msg.content.find(b => b.type === "text");
   return block && block.type === "text" ? block.text : "(no reply generated)";
+}
+
+// Fetch up to 20 changed files from a PR. The diff is the highest-signal
+// context for summarize / review verbs but is intentionally skipped on issues
+// (no diff exists) and on free verbs that don't need it. Each patch is
+// truncated to the first 40 lines to keep the token budget bounded — fine
+// for code review of small/medium PRs, degraded but still useful on huge
+// ones. Returns [] on any error; downstream handlers gracefully omit the
+// section when empty.
+
+async function fetchPRFiles(token: string, owner: string, repo: string, pull_number: number): Promise<ThreadCtx["prFiles"]> {
+  try {
+    const res = await request("GET /repos/{owner}/{repo}/pulls/{pull_number}/files", {
+      headers: { authorization: `token ${token}` },
+      owner, repo, pull_number,
+      per_page: 30,
+    });
+    return ((res.data as any[]) ?? []).slice(0, 20).map(f => ({
+      filename: f.filename,
+      status: f.status ?? "modified",
+      additions: f.additions ?? 0,
+      deletions: f.deletions ?? 0,
+      patch: (f.patch ?? "").split("\n").slice(0, 40).join("\n"),
+    }));
+  } catch {
+    return [];
+  }
 }
 
 // ─── Background processor ─────────────────────────────────────────────────
@@ -353,13 +477,13 @@ async function processWebhook(event: string, payload: any, deliveryId: string): 
     let handled = true;
     // Branch by event. Only do work on the events the App is subscribed to.
     if (event === "issue_comment" && payload.action === "created") {
-      await handleIssueComment(payload);
+      await handleIssueComment(payload, deliveryId);
     } else if (event === "pull_request_review_comment" && payload.action === "created") {
-      await handlePRReviewComment(payload);
+      await handlePRReviewComment(payload, deliveryId);
     } else if (event === "issues" && payload.action === "opened") {
-      await handleIssueOpened(payload);
+      await handleIssueOpened(payload, deliveryId);
     } else if (event === "pull_request" && payload.action === "opened") {
-      await handlePROpened(payload);
+      await handlePROpened(payload, deliveryId);
     } else if (event === "installation" && payload.action === "created") {
       await handleInstallationCreated(payload);
     } else if (event === "installation" && payload.action === "deleted") {
@@ -396,7 +520,7 @@ async function processWebhook(event: string, payload: any, deliveryId: string): 
   }
 }
 
-async function handleIssueComment(payload: any): Promise<void> {
+async function handleIssueComment(payload: any, deliveryId: string): Promise<void> {
   if (payload.comment?.user?.type === "Bot") return; // self-loop guard
   const cmd = parseMention(payload.comment?.body ?? "");
   if (!cmd) return;
@@ -475,7 +599,10 @@ async function handleIssueComment(payload: any): Promise<void> {
         }).catch(() => {});
         return;
       }
-      const comments = await fetchIssueComments(token, owner, repo, issueNumber);
+      const [comments, prFiles] = await Promise.all([
+        fetchIssueComments(token, owner, repo, issueNumber),
+        fetchPRFiles(token, owner, repo, issueNumber),
+      ]);
       await actionReview(token, owner, repo, issueNumber, cmd.args, {
         repo: repoFull,
         kind: "pull_request",
@@ -483,13 +610,17 @@ async function handleIssueComment(payload: any): Promise<void> {
         title: payload.issue.title ?? "",
         body: payload.issue.body ?? "",
         comments,
+        prFiles,
         triggerUser: payload.comment.user.login,
-      });
+      }, { account: accountLogin, installationId, deliveryId });
       return;
     }
   }
   // Free path — LLM-generated comment reply.
-  const comments = await fetchIssueComments(token, owner, repo, issueNumber);
+  const [comments, prFiles] = await Promise.all([
+    fetchIssueComments(token, owner, repo, issueNumber),
+    isPR ? fetchPRFiles(token, owner, repo, issueNumber) : Promise.resolve(undefined),
+  ]);
   const reply = await generateReply(cmd.verb, cmd.args, {
     repo: repoFull,
     kind: isPR ? "pull_request" : "issue",
@@ -497,7 +628,12 @@ async function handleIssueComment(payload: any): Promise<void> {
     title: payload.issue.title ?? "",
     body: payload.issue.body ?? "",
     comments,
+    prFiles,
     triggerUser: payload.comment.user.login,
+  }, {
+    account: payload.repository?.owner?.login,
+    installationId,
+    deliveryId,
   });
   await request("POST /repos/{owner}/{repo}/issues/{issue_number}/comments", {
     headers: { authorization: `token ${token}` },
@@ -506,7 +642,7 @@ async function handleIssueComment(payload: any): Promise<void> {
   });
 }
 
-async function handlePRReviewComment(payload: any): Promise<void> {
+async function handlePRReviewComment(payload: any, deliveryId: string): Promise<void> {
   if (payload.comment?.user?.type === "Bot") return;
   const cmd = parseMention(payload.comment?.body ?? "");
   if (!cmd) return;
@@ -525,13 +661,21 @@ async function handlePRReviewComment(payload: any): Promise<void> {
     return;
   }
   const prNumber = payload.pull_request.number;
-  const threadCtx = {
+  const accountLogin = payload.repository?.owner?.login;
+  const meta: CallMeta = { account: accountLogin, installationId, deliveryId };
+  // Fetch PR file diffs for richer LLM context — only verbs that benefit
+  // (summarize/review/reply on PRs) actually use them, but we fetch once
+  // here and let generateReply ignore prFiles when the verb doesn't need
+  // them. One API call vs branching the fetch is the simpler trade.
+  const prFiles = await fetchPRFiles(token, owner, repo, prNumber);
+  const threadCtx: ThreadCtx = {
     repo: repoFull,
-    kind: "pull_request" as const,
+    kind: "pull_request",
     number: prNumber,
     title: payload.pull_request.title ?? "",
     body: payload.pull_request.body ?? "",
     comments: [{ user: payload.comment.user.login, body: payload.comment.body }],
+    prFiles,
     triggerUser: payload.comment.user.login,
   };
   if (cmd.verb === "help") {
@@ -543,7 +687,6 @@ async function handlePRReviewComment(payload: any): Promise<void> {
     return;
   }
   if (PAID_VERB_SET.has(cmd.verb)) {
-    const accountLogin = payload.repository?.owner?.login;
     const plan = await getPlan(accountLogin);
     if (plan !== "paid") {
       await request("POST /repos/{owner}/{repo}/issues/{issue_number}/comments", {
@@ -562,11 +705,11 @@ async function handlePRReviewComment(payload: any): Promise<void> {
       return;
     }
     if (cmd.verb === "review") {
-      await actionReview(token, owner, repo, prNumber, cmd.args, threadCtx);
+      await actionReview(token, owner, repo, prNumber, cmd.args, threadCtx, meta);
       return;
     }
   }
-  const reply = await generateReply(cmd.verb, cmd.args, threadCtx);
+  const reply = await generateReply(cmd.verb, cmd.args, threadCtx, meta);
   // Reply on the same conversation, not as a new review thread (simpler v1).
   await request("POST /repos/{owner}/{repo}/issues/{issue_number}/comments", {
     headers: { authorization: `token ${token}` },
@@ -575,7 +718,7 @@ async function handlePRReviewComment(payload: any): Promise<void> {
   });
 }
 
-async function handleIssueOpened(payload: any): Promise<void> {
+async function handleIssueOpened(payload: any, deliveryId: string): Promise<void> {
   const installationId = payload.installation?.id;
   const repoFull = payload.repository?.full_name;
   if (!installationId || !repoFull) return;
@@ -589,6 +732,10 @@ async function handleIssueOpened(payload: any): Promise<void> {
     body: payload.issue.body ?? "",
     comments: [],
     triggerUser: payload.issue.user?.login ?? "unknown",
+  }, {
+    account: payload.repository?.owner?.login,
+    installationId,
+    deliveryId,
   });
   await request("POST /repos/{owner}/{repo}/issues/{issue_number}/comments", {
     headers: { authorization: `token ${token}` },
@@ -597,24 +744,34 @@ async function handleIssueOpened(payload: any): Promise<void> {
   });
 }
 
-async function handlePROpened(payload: any): Promise<void> {
+async function handlePROpened(payload: any, deliveryId: string): Promise<void> {
   const installationId = payload.installation?.id;
   const repoFull = payload.repository?.full_name;
   if (!installationId || !repoFull) return;
   const [owner, repo] = repoFull.split("/");
   const token = await getInstallationToken(installationId);
+  const prNumber = payload.pull_request.number;
+  // Fetch the diff so the auto-summary actually summarizes what changed,
+  // not just the description. Biggest single quality lift in the bot:
+  // a one-line PR title now gets a summary grounded in real edits.
+  const prFiles = await fetchPRFiles(token, owner, repo, prNumber);
   const reply = await generateReply("summarize", "", {
     repo: repoFull,
     kind: "pull_request",
-    number: payload.pull_request.number,
+    number: prNumber,
     title: payload.pull_request.title ?? "",
     body: payload.pull_request.body ?? "",
     comments: [],
+    prFiles,
     triggerUser: payload.pull_request.user?.login ?? "unknown",
+  }, {
+    account: payload.repository?.owner?.login,
+    installationId,
+    deliveryId,
   });
   await request("POST /repos/{owner}/{repo}/issues/{issue_number}/comments", {
     headers: { authorization: `token ${token}` },
-    owner, repo, issue_number: payload.pull_request.number,
+    owner, repo, issue_number: prNumber,
     body: reply,
   });
 }
@@ -673,46 +830,47 @@ async function notifyInstallation(kind: "created" | "deleted", installationId: n
       repoCount: Array.isArray(record?.repos) ? record.repos.length : undefined,
     },
   });
-  // Outbound email — generic over any provider that accepts POST JSON
-  // with a `to`/`subject`/`text` body. The env var AGENTICMAIL_SEND_URL
-  // is where we route — could be the AgenticMail SaaS, Resend, Postmark,
-  // a self-hosted SMTP relay, etc. If it isn't set, we just skip and the
-  // welcome path is a no-op without breaking anything.
-  const apiKey = process.env.AGENTICMAIL_API_KEY;
+  // Outbound emails. postEmail() picks SendGrid (preferred) or the custom
+  // POST endpoint; if neither pair of env vars is configured it's a no-op
+  // and the rest of the webhook flow keeps working. Two messages get sent
+  // on `created`: ops notification (to AGENTICMAIL_OPS_EMAIL) + welcome
+  // to the installer.
   const opsTo = process.env.AGENTICMAIL_OPS_EMAIL;
-  const sendUrl = process.env.AGENTICMAIL_SEND_URL;
-  if (!apiKey || !sendUrl) return;
-  const ops = {
-    to: opsTo,
-    subject: kind === "created"
-      ? `[github-app] new install: ${record?.account ?? installationId}`
-      : `[github-app] uninstall: ${record?.account ?? installationId}`,
-    text: [
-      `Installation ID: ${installationId}`,
-      `Account: ${record?.account ?? "(unknown)"} (${record?.type ?? "?"})`,
-      `Repo selection: ${record?.repoSelection ?? "?"}`,
-      Array.isArray(record?.repos) ? `Repos (${record.repos.length}): ${record.repos.slice(0, 10).join(", ")}` : "",
-      `At: ${ts}`,
-    ].filter(Boolean).join("\n"),
-  };
-  await postEmail(sendUrl, apiKey, ops).catch(() => {});
+  if (opsTo) {
+    await postEmail({
+      to: opsTo,
+      subject: kind === "created"
+        ? `[github-app] new install: ${record?.account ?? installationId}`
+        : `[github-app] uninstall: ${record?.account ?? installationId}`,
+      text: [
+        `Installation ID: ${installationId}`,
+        `Account: ${record?.account ?? "(unknown)"} (${record?.type ?? "?"})`,
+        `Repo selection: ${record?.repoSelection ?? "?"}`,
+        Array.isArray(record?.repos) ? `Repos (${record.repos.length}): ${record.repos.slice(0, 10).join(", ")}` : "",
+        `At: ${ts}`,
+      ].filter(Boolean).join("\n"),
+    });
+  }
   // Welcome email to the installer themselves. Only on `created`. The
   // installer's email isn't always exposed by the webhook payload (orgs
   // hide it; users can mark it private), so we send to a synthetic
-  // GitHub no-reply address keyed by login + the public account
-  // `organization_billing_email` if available. The send-url provider is
-  // responsible for refusing if it can't deliver.
+  // GitHub no-reply address keyed by login. The send provider is
+  // responsible for refusing or bouncing if it can't deliver.
   if (kind === "created") {
     const installerEmail = record?.installerEmail
       ?? record?.organizationBillingEmail
-      ?? `${record?.account}@users.noreply.github.com`;
+      ?? (record?.installerLogin
+            ? `${record.installerLogin}@users.noreply.github.com`
+            : record?.account
+              ? `${record.account}@users.noreply.github.com`
+              : undefined);
     const settingsUrl = record?.type === "Organization"
       ? `https://github.com/organizations/${record.account}/settings/installations/${installationId}`
       : `https://github.com/settings/installations/${installationId}`;
     const repoScope = record?.repoSelection === "all"
       ? "all repositories"
       : `${Array.isArray(record?.repos) ? record.repos.length : 0} selected repositories`;
-    const welcome = {
+    await postEmail({
       to: installerEmail,
       subject: "You've installed AgenticMail for GitHub 🎀",
       text: renderWelcomeText({
@@ -721,8 +879,7 @@ async function notifyInstallation(kind: "created" | "deleted", installationId: n
         repoScope,
         settingsUrl,
       }),
-    };
-    await postEmail(sendUrl, apiKey, welcome).catch(() => {});
+    });
   }
 }
 
@@ -767,19 +924,54 @@ function renderWelcomeText(p: { accountLogin: string; accountType: string; repoS
   ].join("\n");
 }
 
-async function postEmail(url: string, apiKey: string, payload: { to?: string; subject: string; text: string }): Promise<void> {
+// Provider-agnostic email send. Two paths:
+//
+//   1. SendGrid (preferred): set SENDGRID_API_KEY + SENDGRID_FROM_EMAIL.
+//      Uses SendGrid's v3/mail/send schema (personalizations + from + content).
+//
+//   2. Custom POST endpoint: set AGENTICMAIL_SEND_URL + AGENTICMAIL_API_KEY.
+//      Plain { to, subject, text } JSON body, sends both x-api-key and
+//      Authorization: Bearer headers so most providers accept it.
+//
+// If neither env pair is set, the function silently no-ops so the rest
+// of the webhook flow keeps working.
+
+async function postEmail(payload: { to?: string; subject: string; text: string }): Promise<void> {
   if (!payload.to) return;
-  await fetch(url, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "x-api-key": apiKey,
-      // Some providers (Resend, Postmark) use Bearer instead. Send both;
-      // unknown headers are ignored.
-      "authorization": `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify(payload),
-  });
+  const sgKey = process.env.SENDGRID_API_KEY;
+  const sgFrom = process.env.SENDGRID_FROM_EMAIL;
+  if (sgKey && sgFrom) {
+    try {
+      await fetch("https://api.sendgrid.com/v3/mail/send", {
+        method: "POST",
+        headers: {
+          "authorization": `Bearer ${sgKey}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          personalizations: [{ to: [{ email: payload.to }] }],
+          from: { email: sgFrom, name: "AgenticMail" },
+          subject: payload.subject,
+          content: [{ type: "text/plain", value: payload.text }],
+        }),
+      });
+    } catch { /* best-effort */ }
+    return;
+  }
+  const apiKey = process.env.AGENTICMAIL_API_KEY;
+  const sendUrl = process.env.AGENTICMAIL_SEND_URL;
+  if (!apiKey || !sendUrl) return;
+  try {
+    await fetch(sendUrl, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-api-key": apiKey,
+        "authorization": `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify(payload),
+    });
+  } catch { /* best-effort */ }
 }
 
 // ─── Paid action handlers ──────────────────────────────────────────────────
@@ -844,8 +1036,8 @@ async function actionMerge(token: string, owner: string, repo: string, num: numb
   }
 }
 
-async function actionReview(token: string, owner: string, repo: string, num: number, args: string, threadCtx: any): Promise<void> {
-  const reviewBody = await generateReply("review", args, threadCtx);
+async function actionReview(token: string, owner: string, repo: string, num: number, args: string, threadCtx: ThreadCtx, meta: CallMeta): Promise<void> {
+  const reviewBody = await generateReply("review", args, threadCtx, meta);
   try {
     // Always event: "COMMENT" — the bot never auto-APPROVES or REQUEST_CHANGES
     // without explicit human signal. v2 may add `@agenticmail review approve`
