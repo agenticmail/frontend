@@ -42,7 +42,98 @@ import Anthropic from "@anthropic-ai/sdk";
 
 const DEDUP_STORE = "github-webhook-dedup";
 const INSTALL_STORE = "github-installations";
+const AUDIT_STORE = "github-webhook-audit";
+const RATE_STORE = "github-rate-limit";
 const DEDUP_TTL_MS = 5 * 60 * 1000;
+
+// Per-installation rate limit. The bot is free, but Anthropic inference
+// isn't — a runaway loop or abuse could drain the OAuth quota attached to
+// this deployment. 60 user-triggered mentions per rolling hour per
+// installation is generous for genuine use, hostile to spam.
+const RATE_LIMIT_PER_HOUR = 60;
+const RATE_WINDOW_MS = 60 * 60 * 1000;
+
+// ─── Audit log ──────────────────────────────────────────────────────────────
+//
+// Every webhook delivery — accepted, deduped, rejected, errored — writes one
+// JSON line to the audit store keyed by `<iso-day>/<delivery-uuid>`. This is
+// what lets us answer "did GitHub's reviewer event arrive?" and
+// "why didn't the bot reply to X?" without trawling Netlify function logs.
+//
+// Failures here are swallowed — we never want a logging error to bring down
+// webhook processing.
+
+interface AuditEntry {
+  ts: string;
+  deliveryId: string;
+  event: string;
+  action?: string;
+  installationId?: number;
+  repo?: string;
+  status: "accepted" | "deduped" | "bad_signature" | "rate_limited" | "processed" | "failed" | "ignored";
+  latencyMs?: number;
+  error?: string;
+  extra?: Record<string, unknown>;
+}
+
+async function writeAudit(entry: AuditEntry): Promise<void> {
+  try {
+    const store = getStore(AUDIT_STORE);
+    const day = entry.ts.slice(0, 10); // YYYY-MM-DD
+    const key = `${day}/${entry.deliveryId || `unknown-${Date.now()}`}`;
+    await store.set(key, JSON.stringify(entry));
+  } catch {
+    /* never throw from the logger */
+  }
+}
+
+// ─── Rate limiter ──────────────────────────────────────────────────────────
+//
+// Fixed-window token bucket keyed by installation ID. Cheap and good enough
+// for v1; if we ever see clever evasion (spreading across many installations
+// from the same actor) we can layer in repo-level limits.
+
+async function checkRateLimit(installationId: number): Promise<{ allowed: boolean; remaining: number; resetMs: number }> {
+  const store = getStore(RATE_STORE);
+  const key = String(installationId);
+  const now = Date.now();
+  let bucket = { count: 0, windowStart: now };
+  try {
+    const raw = await store.get(key);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (now - parsed.windowStart < RATE_WINDOW_MS) {
+        bucket = parsed;
+      }
+    }
+  } catch {
+    /* corrupt blob → reset window */
+  }
+  if (bucket.count >= RATE_LIMIT_PER_HOUR) {
+    return { allowed: false, remaining: 0, resetMs: bucket.windowStart + RATE_WINDOW_MS };
+  }
+  bucket.count += 1;
+  try {
+    await store.set(key, JSON.stringify(bucket));
+  } catch {
+    /* if the store is down, fail open — better to serve than to block */
+  }
+  return { allowed: true, remaining: RATE_LIMIT_PER_HOUR - bucket.count, resetMs: bucket.windowStart + RATE_WINDOW_MS };
+}
+
+function rateLimitMessage(resetMs: number): string {
+  const minutes = Math.max(1, Math.ceil((resetMs - Date.now()) / 60000));
+  return [
+    `🚦 **Rate limit reached.**`,
+    ``,
+    `This installation has used its hourly quota of \`@agenticmail\` invocations.`,
+    `Try again in **~${minutes} min**.`,
+    ``,
+    `If this surprises you, check for a comment loop, a workflow that auto-mentions the bot, or open an issue at [agenticmail/github-app](https://github.com/agenticmail/github-app/issues).`,
+    ``,
+    `— [AgenticMail](https://agenticmail.io) · rate-limit`,
+  ].join("\n");
+}
 
 // ─── HMAC verification ─────────────────────────────────────────────────────
 //
@@ -224,7 +315,11 @@ async function generateReply(verb: string, args: string, thread: {
 // ─── Background processor ─────────────────────────────────────────────────
 
 async function processWebhook(event: string, payload: any, deliveryId: string): Promise<void> {
+  const start = Date.now();
+  const installationId = payload?.installation?.id;
+  const repo = payload?.repository?.full_name;
   try {
+    let handled = true;
     // Branch by event. Only do work on the events the App is subscribed to.
     if (event === "issue_comment" && payload.action === "created") {
       await handleIssueComment(payload);
@@ -238,9 +333,33 @@ async function processWebhook(event: string, payload: any, deliveryId: string): 
       await handleInstallationCreated(payload);
     } else if (event === "installation" && payload.action === "deleted") {
       await handleInstallationDeleted(payload);
+    } else {
+      handled = false;
     }
+    await writeAudit({
+      ts: new Date().toISOString(),
+      deliveryId,
+      event,
+      action: payload?.action,
+      installationId,
+      repo,
+      status: handled ? "processed" : "ignored",
+      latencyMs: Date.now() - start,
+    });
   } catch (err: any) {
-    console.error(`[github-webhook] processing failed for ${event} ${deliveryId}:`, err?.message ?? err);
+    const message = err?.message ?? String(err);
+    console.error(`[github-webhook] processing failed for ${event} ${deliveryId}:`, message);
+    await writeAudit({
+      ts: new Date().toISOString(),
+      deliveryId,
+      event,
+      action: payload?.action,
+      installationId,
+      repo,
+      status: "failed",
+      latencyMs: Date.now() - start,
+      error: message?.slice(0, 500),
+    });
   }
 }
 
@@ -253,6 +372,18 @@ async function handleIssueComment(payload: any): Promise<void> {
   if (!installationId || !repoFull) return;
   const [owner, repo] = repoFull.split("/");
   const token = await getInstallationToken(installationId);
+  // Rate limit check — runs AFTER we know it's a real mention so noise
+  // (non-mention comments) doesn't burn quota. If exceeded, post a
+  // polite cooldown reply so the user knows why nothing happened.
+  const rate = await checkRateLimit(installationId);
+  if (!rate.allowed) {
+    await request("POST /repos/{owner}/{repo}/issues/{issue_number}/comments", {
+      headers: { authorization: `token ${token}` },
+      owner, repo, issue_number: payload.issue.number,
+      body: rateLimitMessage(rate.resetMs),
+    }).catch(() => {});
+    return;
+  }
   // Drop a 👀 reaction so the user sees "got it" immediately.
   await request("POST /repos/{owner}/{repo}/issues/comments/{comment_id}/reactions", {
     headers: { authorization: `token ${token}` },
@@ -286,6 +417,15 @@ async function handlePRReviewComment(payload: any): Promise<void> {
   if (!installationId || !repoFull) return;
   const [owner, repo] = repoFull.split("/");
   const token = await getInstallationToken(installationId);
+  const rate = await checkRateLimit(installationId);
+  if (!rate.allowed) {
+    await request("POST /repos/{owner}/{repo}/issues/{issue_number}/comments", {
+      headers: { authorization: `token ${token}` },
+      owner, repo, issue_number: payload.pull_request.number,
+      body: rateLimitMessage(rate.resetMs),
+    }).catch(() => {});
+    return;
+  }
   const reply = await generateReply(cmd.verb, cmd.args, {
     repo: repoFull,
     kind: "pull_request",
@@ -349,18 +489,80 @@ async function handlePROpened(payload: any): Promise<void> {
 
 async function handleInstallationCreated(payload: any): Promise<void> {
   const store = getStore(INSTALL_STORE);
-  await store.set(String(payload.installation.id), JSON.stringify({
+  const record = {
     account: payload.installation.account?.login,
     type: payload.installation.account?.type,
     repoSelection: payload.installation.repository_selection,
     repos: (payload.repositories ?? []).map((r: any) => r.full_name),
     installedAt: new Date().toISOString(),
-  })).catch(() => {});
+  };
+  await store.set(String(payload.installation.id), JSON.stringify(record)).catch(() => {});
+  await notifyInstallation("created", payload.installation.id, record);
 }
 
 async function handleInstallationDeleted(payload: any): Promise<void> {
   const store = getStore(INSTALL_STORE);
+  // Read first so we can include account info in the notification.
+  let priorRecord: any = null;
+  try {
+    const raw = await store.get(String(payload.installation.id));
+    if (raw) priorRecord = JSON.parse(raw);
+  } catch { /* ignore */ }
   await store.delete(String(payload.installation.id)).catch(() => {});
+  await notifyInstallation("deleted", payload.installation.id, priorRecord ?? {
+    account: payload.installation.account?.login,
+    type: payload.installation.account?.type,
+  });
+}
+
+// Operator-facing notification on install / uninstall. v1 just writes a
+// dedicated audit entry that's easy to grep; v2 will send via AgenticMail
+// once we wire the API key into this function's env. The blob entry alone
+// is enough to drive a simple "new installs in the last 7 days" digest.
+async function notifyInstallation(kind: "created" | "deleted", installationId: number, record: any): Promise<void> {
+  const ts = new Date().toISOString();
+  await writeAudit({
+    ts,
+    deliveryId: `install-${kind}-${installationId}-${Date.now()}`,
+    event: "installation_notify",
+    action: kind,
+    installationId,
+    status: "processed",
+    extra: {
+      account: record?.account,
+      type: record?.type,
+      repoSelection: record?.repoSelection,
+      repoCount: Array.isArray(record?.repos) ? record.repos.length : undefined,
+    },
+  });
+  // Optional: ping an operator inbox via the AgenticMail HTTP API. We
+  // only attempt it if the env var is present, so the function stays
+  // self-contained when it isn't.
+  const apiKey = process.env.AGENTICMAIL_API_KEY;
+  const opsTo = process.env.AGENTICMAIL_OPS_EMAIL;
+  if (!apiKey || !opsTo) return;
+  const subject = kind === "created"
+    ? `[github-app] new install: ${record?.account ?? installationId}`
+    : `[github-app] uninstall: ${record?.account ?? installationId}`;
+  const body = [
+    `Installation ID: ${installationId}`,
+    `Account: ${record?.account ?? "(unknown)"} (${record?.type ?? "?"})`,
+    `Repo selection: ${record?.repoSelection ?? "?"}`,
+    Array.isArray(record?.repos) ? `Repos (${record.repos.length}): ${record.repos.slice(0, 10).join(", ")}` : "",
+    `At: ${ts}`,
+  ].filter(Boolean).join("\n");
+  try {
+    await fetch("https://agenticmail.io/api/email/send", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-api-key": apiKey,
+      },
+      body: JSON.stringify({ to: opsTo, subject, text: body }),
+    });
+  } catch {
+    /* notification is best-effort */
+  }
 }
 
 async function fetchIssueComments(token: string, owner: string, repo: string, issueNumber: number): Promise<Array<{ user: string; body: string }>> {
@@ -392,22 +594,33 @@ export default async function handler(req: Request, context: Context): Promise<R
 
   const rawBody = await req.text();
   const sig = req.headers.get("x-hub-signature-256");
+  const event = req.headers.get("x-github-event") ?? "";
+  const deliveryId = req.headers.get("x-github-delivery") ?? "";
   const verified = await verifySignature(rawBody, sig, secret);
   if (!verified) {
+    await writeAudit({
+      ts: new Date().toISOString(),
+      deliveryId,
+      event,
+      status: "bad_signature",
+    });
     return new Response(JSON.stringify({ error: "bad signature" }), {
       status: 401,
       headers: { "content-type": "application/json" },
     });
   }
 
-  const event = req.headers.get("x-github-event") ?? "";
-  const deliveryId = req.headers.get("x-github-delivery") ?? "";
-
   // Delivery dedup. GitHub retries — same delivery UUID arrives 2-3×.
   if (deliveryId) {
     const dedup = getStore(DEDUP_STORE);
     const seen = await dedup.get(deliveryId).catch(() => null);
     if (seen) {
+      await writeAudit({
+        ts: new Date().toISOString(),
+        deliveryId,
+        event,
+        status: "deduped",
+      });
       return new Response(JSON.stringify({ ok: true, deduped: true }), {
         status: 202,
         headers: { "content-type": "application/json" },
