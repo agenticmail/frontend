@@ -2,6 +2,7 @@ import { Navbar } from '@/components/Navbar';
 import { Hero } from '@/components/Hero';
 import { LiveStats } from '@/components/LiveStats';
 import { CompanyMarquee } from '@/components/CompanyMarquee';
+import { ProductLineup } from '@/components/ProductLineup';
 import { HowItWorks } from '@/components/HowItWorks';
 import { DashboardPreview } from '@/components/DashboardPreview';
 import { AgentCapabilities } from '@/components/AgentCapabilities';
@@ -19,6 +20,7 @@ export default function Home() {
       <Hero />
       <LiveStats />
       <CompanyMarquee />
+      <ProductLineup />
       <HowItWorks />
       <DashboardPreview />
       <AgentCapabilities />

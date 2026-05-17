@@ -52,37 +52,40 @@ export function OpenSource() {
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true }}
           >
-            {/* Also looking for the original AgenticMail */}
+            {/* Both packages get equal visual weight here — the ProductLineup
+             *  section above does the full pitch; this is the "they're both
+             *  MIT, here are the repos" reinforcement. */}
             <div className="space-y-4">
-              <div className="p-5 rounded-xl border border-dark-300/50 bg-dark-100/50">
+              <div className="p-5 rounded-xl border border-accent-green/30 bg-dark-100/50">
                 <div className="flex items-center gap-2 mb-3">
                   <span className="text-lg">🎀</span>
-                  <span className="font-bold text-white">AgenticMail Enterprise</span>
+                  <span className="font-bold text-white">agenticmail</span>
+                  <span className="text-[10px] font-semibold tracking-wider text-accent-green bg-accent-green/10 border border-accent-green/30 px-2 py-0.5 rounded">
+                    OSS · MIT
+                  </span>
                 </div>
-                <p className="text-sm text-gray-400 mb-3">Full AI workforce platform. Deploy and govern AI agents as employees.</p>
+                <p className="text-sm text-gray-400 mb-3">Email + SMS for AI agents. MCP server, OpenClaw plugin, Node SDK.</p>
+                <div className="font-mono text-xs text-gray-500 bg-dark-200/50 rounded px-3 py-2">
+                  npx agenticmail
+                </div>
+                <a href="https://github.com/agenticmail/agenticmail" target="_blank" rel="noopener noreferrer" className="inline-block mt-3 text-xs text-accent-green hover:text-white transition-colors">
+                  View repository →
+                </a>
+              </div>
+
+              <div className="p-5 rounded-xl border border-accent/30 bg-dark-100/50">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-lg">🎀</span>
+                  <span className="font-bold text-white">@agenticmail/enterprise</span>
+                  <span className="text-[10px] font-semibold tracking-wider text-accent bg-accent/10 border border-accent/30 px-2 py-0.5 rounded">
+                    MIT · 770+ files
+                  </span>
+                </div>
+                <p className="text-sm text-gray-400 mb-3">Full multi-tenant workforce platform. Dashboard, governance, 370+ tools.</p>
                 <div className="font-mono text-xs text-gray-500 bg-dark-200/50 rounded px-3 py-2">
                   npx @agenticmail/enterprise
                 </div>
-                <div className="flex gap-3 mt-3 text-xs text-gray-500">
-                  <span>770+ files</span>
-                  <span>·</span>
-                  <span>MIT</span>
-                  <span>·</span>
-                  <span>TypeScript</span>
-                </div>
-              </div>
-
-              <div className="p-5 rounded-xl border border-dark-300/30 bg-dark-100/30">
-                <div className="flex items-center gap-2 mb-3">
-                  <span className="text-lg">🎀</span>
-                  <span className="font-semibold text-gray-300">AgenticMail</span>
-                  <span className="text-[10px] text-gray-500 bg-dark-200 px-1.5 py-0.5 rounded">OSS</span>
-                </div>
-                <p className="text-sm text-gray-500 mb-3">Email & SMS for AI agents. OpenClaw plugin, MCP server, REST API.</p>
-                <div className="font-mono text-xs text-gray-600 bg-dark-200/30 rounded px-3 py-2">
-                  npx agenticmail
-                </div>
-                <a href="https://github.com/agenticmail/agenticmail" target="_blank" rel="noopener noreferrer" className="inline-block mt-3 text-xs text-gray-500 hover:text-gray-400 transition-colors">
+                <a href="https://github.com/agenticmail/enterprise" target="_blank" rel="noopener noreferrer" className="inline-block mt-3 text-xs text-accent hover:text-white transition-colors">
                   View repository →
                 </a>
               </div>
