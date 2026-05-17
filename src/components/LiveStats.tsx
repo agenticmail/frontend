@@ -10,6 +10,13 @@ interface Stats {
   topTools: { tool: string; count: number }[];
 }
 
+interface GitHubTotals {
+  stars: number;
+  forks: number;
+  contributors: number;
+  commits: number;
+}
+
 function AnimatedCounter({ target, duration = 2000 }: { target: number; duration?: number }) {
   const [count, setCount] = useState(0);
 
@@ -32,15 +39,22 @@ function AnimatedCounter({ target, duration = 2000 }: { target: number; duration
 export function LiveStats() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [npmDownloads, setNpmDownloads] = useState<{ week: number; month: number; total: number } | null>(null);
+  const [gh, setGh] = useState<GitHubTotals | null>(null);
 
   useEffect(() => {
+    // All three sources autonomously refresh on page load. Each is edge-
+    // cached server-side (telemetry: 0 / npm-stats: 1h / github-stats: 1h)
+    // so the panel is always close to current without a backend hammer.
     fetch('/api/telemetry').then(r => r.json()).then((d: any) => setStats(d)).catch(() => {});
     fetch('/api/npm-stats').then(r => r.json()).then((d: any) => setNpmDownloads(d.downloads)).catch(() => {});
+    fetch('/api/github-stats').then(r => r.json()).then((d: any) => setGh(d.totals)).catch(() => {});
   }, []);
 
   const totalDownloads = npmDownloads?.total || stats?.npmDownloads || 0;
   const toolCalls = stats?.totalCalls || 0;
   const uniqueInstalls = stats?.totalInstalls || 0;
+  const githubStars = gh?.stars || 0;
+  const githubCommits = gh?.commits || 0;
 
   return (
     <section className="pt-4 pb-8 px-4 sm:px-6 lg:px-8">
@@ -49,39 +63,59 @@ export function LiveStats() {
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true }}
         transition={{ duration: 0.4 }}
-        className="max-w-3xl mx-auto"
+        className="max-w-5xl mx-auto"
       >
-        <div className="bg-dark-100/60 border border-dark-300 rounded-xl px-4 py-4 sm:px-8 sm:py-5 backdrop-blur-sm flex items-center justify-between gap-2">
-          {/* npm Downloads */}
-          <a href="https://www.npmjs.com/package/agenticmail" target="_blank" rel="noopener noreferrer" className="flex-1 text-center hover:opacity-80 transition-opacity cursor-pointer">
-            <div className="text-xl sm:text-3xl font-bold text-white font-mono leading-tight">
+        <div className="bg-dark-100/60 border border-dark-300 rounded-xl px-4 py-4 sm:px-6 sm:py-5 backdrop-blur-sm flex items-center justify-between gap-2 flex-wrap sm:flex-nowrap">
+          {/* npm Downloads — combined across all 4 packages */}
+          <a href="https://www.npmjs.com/package/@agenticmail/cli" target="_blank" rel="noopener noreferrer" className="flex-1 min-w-[80px] text-center hover:opacity-80 transition-opacity cursor-pointer">
+            <div className="text-lg sm:text-2xl font-bold text-white font-mono leading-tight">
               <AnimatedCounter target={totalDownloads} />
             </div>
-            <div className="text-[10px] sm:text-xs text-gray-500 uppercase tracking-wider mt-0.5">Downloads</div>
+            <div className="text-[9px] sm:text-[10px] text-gray-500 uppercase tracking-wider mt-0.5">Downloads</div>
           </a>
 
-          <div className="w-px h-8 sm:h-10 bg-dark-300" />
+          <div className="hidden sm:block w-px h-10 bg-dark-300" />
 
-          {/* Tool Calls */}
-          <div className="flex-1 text-center">
-            <div className="text-xl sm:text-3xl font-bold text-accent font-mono leading-tight">
+          {/* GitHub Stars — across both repos */}
+          <a href="https://github.com/agenticmail" target="_blank" rel="noopener noreferrer" className="flex-1 min-w-[80px] text-center hover:opacity-80 transition-opacity cursor-pointer">
+            <div className="text-lg sm:text-2xl font-bold text-accent-orange font-mono leading-tight">
+              <AnimatedCounter target={githubStars} />
+            </div>
+            <div className="text-[9px] sm:text-[10px] text-gray-500 uppercase tracking-wider mt-0.5">★ GitHub Stars</div>
+          </a>
+
+          <div className="hidden sm:block w-px h-10 bg-dark-300" />
+
+          {/* Commits — across both repos */}
+          <a href="https://github.com/agenticmail/agenticmail/commits" target="_blank" rel="noopener noreferrer" className="flex-1 min-w-[80px] text-center hover:opacity-80 transition-opacity cursor-pointer">
+            <div className="text-lg sm:text-2xl font-bold text-accent-purple font-mono leading-tight">
+              <AnimatedCounter target={githubCommits} />
+            </div>
+            <div className="text-[9px] sm:text-[10px] text-gray-500 uppercase tracking-wider mt-0.5">Commits</div>
+          </a>
+
+          <div className="hidden sm:block w-px h-10 bg-dark-300" />
+
+          {/* Tool Calls — from /api/telemetry */}
+          <div className="flex-1 min-w-[80px] text-center">
+            <div className="text-lg sm:text-2xl font-bold text-accent font-mono leading-tight">
               <AnimatedCounter target={toolCalls} />
             </div>
-            <div className="text-[10px] sm:text-xs text-gray-500 uppercase tracking-wider mt-0.5">Tool Calls</div>
+            <div className="text-[9px] sm:text-[10px] text-gray-500 uppercase tracking-wider mt-0.5">Tool Calls</div>
           </div>
 
-          <div className="w-px h-8 sm:h-10 bg-dark-300" />
+          <div className="hidden sm:block w-px h-10 bg-dark-300" />
 
-          {/* Unique Installs */}
-          <div className="flex-1 text-center">
-            <div className="text-xl sm:text-3xl font-bold text-accent-green font-mono leading-tight">
+          {/* Unique Installs — from /api/telemetry */}
+          <div className="flex-1 min-w-[80px] text-center">
+            <div className="text-lg sm:text-2xl font-bold text-accent-green font-mono leading-tight">
               <AnimatedCounter target={uniqueInstalls} />
             </div>
-            <div className="text-[10px] sm:text-xs text-gray-500 uppercase tracking-wider mt-0.5">Installs</div>
+            <div className="text-[9px] sm:text-[10px] text-gray-500 uppercase tracking-wider mt-0.5">Installs</div>
           </div>
 
           {/* Live dot */}
-          <div className="hidden sm:flex items-center gap-1.5 pl-4 border-l border-dark-300">
+          <div className="hidden lg:flex items-center gap-1.5 pl-4 border-l border-dark-300">
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent-green opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-accent-green"></span>

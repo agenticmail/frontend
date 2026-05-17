@@ -12,11 +12,14 @@ const links = {
     { label: 'Documentation', href: 'https://github.com/agenticmail/enterprise#readme' },
     { label: 'Getting Started', href: 'https://github.com/agenticmail/enterprise#getting-started-5-minutes' },
     { label: 'API Reference', href: 'https://github.com/agenticmail/enterprise#api-reference' },
+    { label: 'Enterprise Wiki', href: 'https://github.com/agenticmail/enterprise/wiki' },
+    { label: 'OSS Wiki', href: 'https://github.com/agenticmail/agenticmail/wiki' },
   ],
   GitHub: [
+    { label: 'OSS Monorepo', href: 'https://github.com/agenticmail/agenticmail' },
     { label: 'Enterprise', href: 'https://github.com/agenticmail/enterprise' },
-    { label: 'AgenticMail OSS', href: 'https://github.com/agenticmail/agenticmail' },
     { label: 'Issues', href: 'https://github.com/agenticmail/enterprise/issues' },
+    { label: 'Commits', href: 'https://github.com/agenticmail/agenticmail/commits' },
   ],
   Community: [
     { label: 'Twitter', href: 'https://twitter.com/agenticmail' },

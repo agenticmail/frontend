@@ -59,14 +59,14 @@ export function OpenSource() {
               <div className="p-5 rounded-xl border border-accent-green/30 bg-dark-100/50">
                 <div className="flex items-center gap-2 mb-3">
                   <span className="text-lg">🎀</span>
-                  <span className="font-bold text-white">agenticmail</span>
+                  <span className="font-bold text-white">@agenticmail/cli</span>
                   <span className="text-[10px] font-semibold tracking-wider text-accent-green bg-accent-green/10 border border-accent-green/30 px-2 py-0.5 rounded">
                     OSS · MIT
                   </span>
                 </div>
                 <p className="text-sm text-gray-400 mb-3">Email + SMS for AI agents. MCP server, OpenClaw plugin, Node SDK.</p>
                 <div className="font-mono text-xs text-gray-500 bg-dark-200/50 rounded px-3 py-2">
-                  npx agenticmail
+                  npx @agenticmail/cli
                 </div>
                 <a href="https://github.com/agenticmail/agenticmail" target="_blank" rel="noopener noreferrer" className="inline-block mt-3 text-xs text-accent-green hover:text-white transition-colors">
                   View repository →

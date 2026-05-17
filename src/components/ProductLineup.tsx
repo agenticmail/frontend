@@ -14,9 +14,9 @@ interface PackageStats {
  * Two-card lineup that gives both products equal billing on the home page:
  *
  *   ┌────────────────────────┬────────────────────────┐
- *   │  agenticmail (OSS)     │  @agenticmail/enterprise│
+ *   │  @agenticmail/cli (OSS)│  @agenticmail/enterprise│
  *   │  Devs / single agent   │  Orgs / agent fleets   │
- *   │  npx agenticmail       │  npx @agenticmail/...  │
+ *   │  npx @agenticmail/cli  │  npx @agenticmail/...  │
  *   │  GitHub + npm link     │  Dashboard + npm link  │
  *   └────────────────────────┴────────────────────────┘
  *
@@ -66,8 +66,10 @@ export function ProductLineup() {
       .catch(() => {});
   }, []);
 
-  const oss = packages.find(p => p.pkg === 'agenticmail') ?? null;
+  const oss = packages.find(p => p.pkg === '@agenticmail/cli') ?? null;
   const ent = packages.find(p => p.pkg === '@agenticmail/enterprise') ?? null;
+  const claudecode = packages.find(p => p.pkg === '@agenticmail/claudecode') ?? null;
+  const codex = packages.find(p => p.pkg === '@agenticmail/codex') ?? null;
 
   return (
     <section id="products" className="py-16 sm:py-24 px-4 sm:px-6 lg:px-8 border-t border-dark-300/30">
@@ -100,7 +102,7 @@ export function ProductLineup() {
         >
           <div className="flex items-center gap-3 mb-1">
             <span className="text-2xl">🎀</span>
-            <span className="font-bold text-white text-xl">agenticmail</span>
+            <span className="font-bold text-white text-xl">@agenticmail/cli</span>
             <span className="text-[10px] font-semibold tracking-wider text-accent-green bg-accent-green/10 border border-accent-green/30 px-2 py-0.5 rounded">
               OSS · MIT
             </span>
@@ -110,7 +112,7 @@ export function ProductLineup() {
           </p>
 
           <div className="font-mono text-sm bg-dark-200/70 rounded-lg px-4 py-3 mb-5 text-accent-green">
-            $ npx agenticmail
+            $ npx @agenticmail/cli
           </div>
 
           <ul className="space-y-2 mb-6">
@@ -130,7 +132,7 @@ export function ProductLineup() {
 
           <div className="flex flex-wrap gap-2">
             <a
-              href="https://www.npmjs.com/package/agenticmail"
+              href="https://www.npmjs.com/package/@agenticmail/cli"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-accent-green text-dark font-semibold text-sm hover:bg-accent-green/90 transition-colors"
@@ -210,6 +212,91 @@ export function ProductLineup() {
           </div>
         </motion.div>
       </div>
+
+      {/* ─── Host plugins ─────────────────────────────────────────
+       *  Below the two main cards. These are how people actually drop
+       *  agenticmail into their existing AI tooling — claudecode for
+       *  Anthropic Claude Code, codex for OpenAI Codex CLI. They're
+       *  not separate products in the strict sense (they wrap the
+       *  agenticmail protocol), but they get their own row so the
+       *  visitor sees "ok, this thing already supports my editor /
+       *  terminal" without scrolling away from the lineup. */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true }}
+        transition={{ duration: 0.4, delay: 0.1 }}
+        className="max-w-5xl mx-auto mt-10"
+      >
+        <div className="text-center mb-6">
+          <div className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Host plugins</div>
+          <p className="text-sm text-gray-500">
+            Drop the OSS into your existing AI CLI in one command. Both plugins ship every AgenticMail agent
+            as a native sub-agent the host can delegate to.
+          </p>
+        </div>
+
+        <div className="grid sm:grid-cols-2 gap-4">
+          <HostPluginCard
+            name="@agenticmail/claudecode"
+            tagline="Claude Code integration — surfaces every AgenticMail agent as a native subagent."
+            install="npx @agenticmail/claudecode install"
+            github="https://github.com/agenticmail/agenticmail/tree/main/packages/claudecode"
+            npm="https://www.npmjs.com/package/@agenticmail/claudecode"
+            stats={claudecode}
+          />
+          <HostPluginCard
+            name="@agenticmail/codex"
+            tagline="OpenAI Codex CLI integration — same agents, same threads, Codex-native dispatch."
+            install="npx @agenticmail/codex install"
+            github="https://github.com/agenticmail/agenticmail/tree/main/packages/codex"
+            npm="https://www.npmjs.com/package/@agenticmail/codex"
+            stats={codex}
+          />
+        </div>
+      </motion.div>
     </section>
+  );
+}
+
+/**
+ * Compact host-plugin card. Smaller chrome than the main two cards
+ * because these are augmentations of `agenticmail`, not standalone
+ * products — but they still get their own install command + live
+ * download count + npm/repo links so they don't feel like footnotes.
+ */
+function HostPluginCard({
+  name, tagline, install, github, npm, stats,
+}: {
+  name: string;
+  tagline: string;
+  install: string;
+  github: string;
+  npm: string;
+  stats: PackageStats | null;
+}) {
+  return (
+    <div className="rounded-xl border border-dark-300 bg-dark-100/40 p-5 hover:border-accent-purple/40 transition-colors">
+      <div className="flex items-center gap-2 mb-2">
+        <span className="text-base">🎀</span>
+        <span className="font-semibold text-white text-sm font-mono">{name}</span>
+      </div>
+      <p className="text-xs text-gray-400 mb-3 leading-relaxed">{tagline}</p>
+      <div className="font-mono text-xs bg-dark-200/60 rounded px-3 py-2 text-accent-purple mb-3 overflow-x-auto">
+        $ {install}
+      </div>
+      <div className="text-[11px] text-gray-500 mb-3">
+        <StatLine pkg={stats} />
+      </div>
+      <div className="flex gap-3 text-xs">
+        <a href={npm} target="_blank" rel="noopener noreferrer" className="text-accent-purple hover:text-white transition-colors">
+          npm →
+        </a>
+        <span className="text-gray-700">·</span>
+        <a href={github} target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white transition-colors">
+          GitHub →
+        </a>
+      </div>
+    </div>
   );
 }

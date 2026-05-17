@@ -1,11 +1,24 @@
 import type { Context } from "@netlify/functions";
 
-// Both packages we promote on the marketing site. Order matters — the
-// frontend lays out the cards in this order (OSS first, enterprise
-// second) so they read as "start here → scale up here".
+// All packages we promote on the marketing site. The frontend lays
+// them out in this order:
+//   1. @agenticmail/cli         — protocol layer (the base everyone uses)
+//   2. @agenticmail/claudecode  — Claude Code host plugin
+//   3. @agenticmail/codex       — Codex CLI host plugin
+//   4. @agenticmail/enterprise  — full multi-tenant workforce platform
+// Order matters — the ProductLineup section reads "base → IDE plugins
+// → upgrade path".
+//
+// NOTE: the bare `agenticmail` name was renamed to `@agenticmail/cli`
+// and the old name is npm-deprecated. We only fetch download stats for
+// the live name now — the deprecated package's downloads have already
+// stopped accruing meaningfully and adding it here would just show
+// stale numbers next to active ones.
 const PACKAGES = [
-  "agenticmail",            // OSS — email/SMS for AI agents (CLI, MCP, OpenClaw plugin)
-  "@agenticmail/enterprise", // Enterprise — full multi-tenant workforce platform
+  "@agenticmail/cli",
+  "@agenticmail/claudecode",
+  "@agenticmail/codex",
+  "@agenticmail/enterprise",
 ] as const;
 
 interface PackageStats {

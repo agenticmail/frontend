@@ -252,7 +252,7 @@ export function HeroComposition() {
           transform: `translateY(${interpolate(ctaProgress, [0, 0.3], [20, 0], { extrapolateRight: 'clamp' })}px)`,
         }}
       >
-        <span className="text-xs text-gray-500 font-mono">scroll to explore &middot; npx agenticmail</span>
+        <span className="text-xs text-gray-500 font-mono">scroll to explore &middot; npx @agenticmail/cli</span>
       </div>
     </AbsoluteFill>
   );

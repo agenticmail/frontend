@@ -9,7 +9,7 @@ function TypingTerminal() {
   // a tab switch. Order: OSS first (lower commitment), enterprise second
   // (the upgrade path). Total runtime ~7s.
   const lines = [
-    { text: '$ npx agenticmail', color: 'text-gray-500', delay: 0 },
+    { text: '$ npx @agenticmail/cli', color: 'text-gray-500', delay: 0 },
     { text: '  ✓ Inbox claimed: alice@yourdomain.io', color: 'text-accent-green', delay: 500 },
     { text: '  ✓ MCP server live on stdio', color: 'text-accent-green', delay: 900 },
     { text: '  ✓ SMS number purchased: +1 (555) 0148', color: 'text-accent-green', delay: 1300 },
@@ -109,7 +109,8 @@ export function Hero() {
               transition={{ duration: 0.5, delay: 0.2 }}
               className="text-lg text-gray-400 leading-relaxed mb-8 max-w-lg"
             >
-              <strong className="text-white">agenticmail</strong> gives any AI agent its own inbox, phone number, and SMS &mdash; via MCP, OpenClaw plugin, or the Node SDK.{' '}
+              <strong className="text-white">@agenticmail/cli</strong> gives any AI agent its own inbox, phone number, and SMS &mdash; with one-command plugins for{' '}
+              <strong className="text-white">Claude Code</strong> and <strong className="text-white">Codex</strong>.{' '}
               <strong className="text-white">@agenticmail/enterprise</strong> adds calendars, browsers, 370+ tools, governance, and a multi-tenant dashboard for running whole agent fleets.
             </motion.p>
 
@@ -120,12 +121,12 @@ export function Hero() {
               className="flex flex-wrap gap-3"
             >
               <a
-                href="https://www.npmjs.com/package/agenticmail"
+                href="https://www.npmjs.com/package/@agenticmail/cli"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-accent-green text-dark font-semibold text-sm hover:bg-accent-green/90 transition-all"
               >
-                Install agenticmail
+                Install @agenticmail/cli
                 <span className="font-mono text-xs opacity-70">npx</span>
               </a>
               <a

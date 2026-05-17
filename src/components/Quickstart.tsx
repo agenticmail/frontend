@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { useState } from 'react';
 
 const existingUserCode = `# One command. That's it.
-npx agenticmail@latest openclaw
+npx @agenticmail/cli@latest openclaw
 
 # This will:
 # ✓ Install AgenticMail
@@ -19,14 +19,14 @@ npm install -g openclaw
 openclaw start
 
 # Step 2: Add AgenticMail
-npx agenticmail@latest setup
+npx @agenticmail/cli@latest setup
 
 # That's it. Your agent now has email & SMS.
 #
 # Issues? https://github.com/agenticmail/agenticmail/issues`;
 
 const mcpCode = `# Step 1: Run setup
-npx agenticmail@latest setup
+npx @agenticmail/cli@latest setup
 
 # Step 2: Add this to your MCP client config:
 #
@@ -44,7 +44,7 @@ npx agenticmail@latest setup
   "mcpServers": {
     "agenticmail": {
       "command": "npx",
-      "args": ["agenticmail", "mcp"]
+      "args": ["@agenticmail/cli", "mcp"]
     }
   }
 }
@@ -54,7 +54,7 @@ npx agenticmail@latest setup
 # Issues? https://github.com/agenticmail/agenticmail/issues`;
 
 const apiCode = `# Step 1: Run setup
-npx agenticmail@latest setup
+npx @agenticmail/cli@latest setup
 
 # That's it. Now you have 75+ REST API endpoints:
 curl -X POST http://localhost:3210/api/email/send \\
