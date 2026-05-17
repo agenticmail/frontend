@@ -31,7 +31,13 @@ import Anthropic from "@anthropic-ai/sdk";
  *   GITHUB_APP_ID                — the numeric App ID
  *   GITHUB_APP_PRIVATE_KEY       — PEM-encoded RSA private key (multi-line ok)
  *   GITHUB_WEBHOOK_SECRET        — random string set on the App's webhook config
- *   ANTHROPIC_API_KEY            — Claude API key for generating replies
+ *   ANTHROPIC_AUTH_TOKEN         — Claude OAuth token (sk-ant-oat01-…) — preferred
+ *     OR
+ *   ANTHROPIC_API_KEY            — classic API key (sk-ant-api03-…)
+ *
+ * The SDK reads ANTHROPIC_AUTH_TOKEN automatically when constructed without
+ * explicit creds; we still pass it explicitly so a missing env var fails
+ * loudly in `generateReply` rather than at the first SDK call.
  */
 
 const DEDUP_STORE = "github-webhook-dedup";
@@ -143,11 +149,27 @@ async function generateReply(verb: string, args: string, thread: {
   comments: Array<{ user: string; body: string }>;
   triggerUser: string;
 }): Promise<string> {
+  // Prefer the OAuth token (sk-ant-oat01-…) since Ope's stack already
+  // mints one for Claude Code; fall back to a classic API key
+  // (sk-ant-api03-…) if that's what the operator provisioned. The SDK
+  // exposes both via `authToken` and `apiKey` respectively; passing the
+  // wrong field for the wrong token shape produces a 401 from
+  // Anthropic, hence the prefer-oauth + explicit-else routing.
+  const authToken = process.env.ANTHROPIC_AUTH_TOKEN;
   const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    return `Agent unavailable: \`ANTHROPIC_API_KEY\` is not configured on the webhook host.`;
+  if (!authToken && !apiKey) {
+    return `Agent unavailable: neither \`ANTHROPIC_AUTH_TOKEN\` nor \`ANTHROPIC_API_KEY\` is configured on the webhook host.`;
   }
-  const client = new Anthropic({ apiKey });
+  const client = authToken
+    ? new Anthropic({
+        authToken,
+        // OAuth tokens require the beta header to authorize the
+        // messages endpoint. The SDK doesn't add it automatically
+        // because not every OAuth-token holder is on the same beta
+        // surface, so we set it explicitly here.
+        defaultHeaders: { 'anthropic-beta': 'oauth-2025-04-20' },
+      })
+    : new Anthropic({ apiKey: apiKey! });
 
   const systemPrompt = [
     "You are @agenticmail — an AI assistant that responds to mentions in GitHub issue and PR threads.",

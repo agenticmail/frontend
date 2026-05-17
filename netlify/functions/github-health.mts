@@ -12,13 +12,21 @@ import type { Context } from "@netlify/functions";
  */
 
 export default async function handler(_req: Request, _ctx: Context): Promise<Response> {
+  // The Anthropic auth slot accepts EITHER an OAuth token
+  // (sk-ant-oat01-…) via ANTHROPIC_AUTH_TOKEN OR a classic API key
+  // (sk-ant-api03-…) via ANTHROPIC_API_KEY. We treat the LLM slot as
+  // "configured" if either is present.
   const env = {
     GITHUB_APP_ID: !!process.env.GITHUB_APP_ID,
     GITHUB_APP_PRIVATE_KEY: !!process.env.GITHUB_APP_PRIVATE_KEY,
     GITHUB_WEBHOOK_SECRET: !!process.env.GITHUB_WEBHOOK_SECRET,
+    ANTHROPIC_AUTH_TOKEN: !!process.env.ANTHROPIC_AUTH_TOKEN,
     ANTHROPIC_API_KEY: !!process.env.ANTHROPIC_API_KEY,
   };
-  const allConfigured = Object.values(env).every(Boolean);
+  const allConfigured = env.GITHUB_APP_ID
+    && env.GITHUB_APP_PRIVATE_KEY
+    && env.GITHUB_WEBHOOK_SECRET
+    && (env.ANTHROPIC_AUTH_TOKEN || env.ANTHROPIC_API_KEY);
   return new Response(JSON.stringify({
     ok: true,
     subsystem: "github-webhook",
