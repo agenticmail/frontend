@@ -44,6 +44,7 @@ const DEDUP_STORE = "github-webhook-dedup";
 const INSTALL_STORE = "github-installations";
 const AUDIT_STORE = "github-webhook-audit";
 const RATE_STORE = "github-rate-limit";
+const BILLING_STORE = "github-billing";
 const DEDUP_TTL_MS = 5 * 60 * 1000;
 
 // Per-installation rate limit. The bot is free, but Anthropic inference
@@ -121,6 +122,61 @@ async function checkRateLimit(installationId: number): Promise<{ allowed: boolea
   return { allowed: true, remaining: RATE_LIMIT_PER_HOUR - bucket.count, resetMs: bucket.windowStart + RATE_WINDOW_MS };
 }
 
+// ─── Billing / plan gate ───────────────────────────────────────────────────
+//
+// GitHub Marketplace delivers a `marketplace_purchase` event whenever a
+// customer subscribes, changes, or cancels a plan. We record the most
+// recent plan per account login (the org or user that owns the repo)
+// into the github-billing store, keyed by lowercased login.
+//
+// Plan check at command time:
+//   - No record  → "free" (safer default; same as if they never bought)
+//   - planName matches /^free$/i → "free"
+//   - otherwise → "paid"
+//
+// v1 collapses all paid tiers into one bucket. When we add Pro / Team /
+// Enterprise tiers with feature differences, swap getPlan() for a fuller
+// shape and check at each gate.
+
+interface BillingRecord {
+  accountLogin: string;
+  accountId: number;
+  planName: string;
+  planId: number;
+  billingCycle?: string;
+  unitCount?: number;
+  onFreeTrial?: boolean;
+  effectiveDate?: string;
+  updatedAt: string;
+}
+
+async function getPlan(accountLogin: string | undefined | null): Promise<"free" | "paid"> {
+  if (!accountLogin) return "free";
+  try {
+    const store = getStore(BILLING_STORE);
+    const raw = await store.get(accountLogin.toLowerCase());
+    if (!raw) return "free";
+    const rec: BillingRecord = JSON.parse(raw);
+    if (!rec.planName || /^free$/i.test(rec.planName)) return "free";
+    return "paid";
+  } catch {
+    return "free";
+  }
+}
+
+function upgradeRequiredMessage(verb: string, accountLogin: string | undefined): string {
+  const who = accountLogin ? ` on **${accountLogin}**` : "";
+  return [
+    `🔒 **\`${verb}\` is a paid feature.**`,
+    ``,
+    `This installation${who} is on the **Free** plan, which covers read + AI-reply commands (\`summarize\`, \`triage\`, \`email\`, \`reply\`, \`handoff\`, \`link\`). State-changing commands (\`close\`, \`merge\`, \`review\`) require a paid plan.`,
+    ``,
+    `[Upgrade your plan →](https://github.com/marketplace/agenticmail)`,
+    ``,
+    `— [AgenticMail](https://agenticmail.io) · upgrade-required`,
+  ].join("\n");
+}
+
 function rateLimitMessage(resetMs: number): string {
   const minutes = Math.max(1, Math.ceil((resetMs - Date.now()) / 60000));
   return [
@@ -173,11 +229,18 @@ async function verifySignature(rawBody: string, signature: string | null, secret
 // the first token after the mention, args are the rest of that line.
 
 interface MentionCommand {
-  verb: "summarize" | "triage" | "email" | "reply" | "handoff" | "link";
+  verb: "summarize" | "triage" | "email" | "reply" | "handoff" | "link"
+      | "close" | "merge" | "review";
   args: string;
 }
 
-const VALID_VERBS = new Set(["summarize", "triage", "email", "reply", "handoff", "link"]);
+// Free verbs — pure read + LLM-generated comment reply, no state changes.
+const FREE_VERBS = ["summarize", "triage", "email", "reply", "handoff", "link"];
+// Paid verbs — perform a state-changing GitHub action (close issue/PR,
+// merge PR, post a formal Pull Request Review). Gated by plan check.
+const PAID_VERBS = ["close", "merge", "review"];
+const VALID_VERBS = new Set([...FREE_VERBS, ...PAID_VERBS]);
+const PAID_VERB_SET = new Set(PAID_VERBS);
 
 function parseMention(body: string): MentionCommand | null {
   if (!body || !body.toLowerCase().includes("@agenticmail")) return null;
@@ -292,6 +355,7 @@ async function generateReply(verb: string, args: string, thread: {
     reply: `Draft a reply following this direction: "${args}". Stay on-topic with the thread.`,
     handoff: `The user is handing this thread off to agent: ${args}. Acknowledge the handoff in a comment.`,
     link: "Look for what other issues in this repo might be related (you can reference issue numbers you see in the comment thread, but don't invent numbers). If nothing is clearly related, say so.",
+    review: "Write a thoughtful code-review comment for this pull request. Look at the description and any discussion so far. Be specific, constructive, and concrete: mention what looks good, what concerns you, and any risks to merging. Don't say 'looks fine' without evidence. Keep it under 400 words.",
   }[verb] || "Summarize the thread.";
 
   const msg = await client.messages.create({
@@ -333,6 +397,8 @@ async function processWebhook(event: string, payload: any, deliveryId: string): 
       await handleInstallationCreated(payload);
     } else if (event === "installation" && payload.action === "deleted") {
       await handleInstallationDeleted(payload);
+    } else if (event === "marketplace_purchase") {
+      await handleMarketplacePurchase(payload);
     } else {
       handled = false;
     }
@@ -390,12 +456,67 @@ async function handleIssueComment(payload: any): Promise<void> {
     owner, repo, comment_id: payload.comment.id,
     content: "eyes",
   }).catch(() => {});
-  // Pull recent comments for context.
-  const comments = await fetchIssueComments(token, owner, repo, payload.issue.number);
+  const isPR = !!payload.issue.pull_request;
+  const issueNumber = payload.issue.number;
+  // Plan gate for state-changing verbs. Repo owner login is the
+  // Marketplace customer; we look up their plan and reject if they
+  // are on Free.
+  if (PAID_VERB_SET.has(cmd.verb)) {
+    const accountLogin = payload.repository?.owner?.login;
+    const plan = await getPlan(accountLogin);
+    if (plan !== "paid") {
+      await request("POST /repos/{owner}/{repo}/issues/{issue_number}/comments", {
+        headers: { authorization: `token ${token}` },
+        owner, repo, issue_number: issueNumber,
+        body: upgradeRequiredMessage(cmd.verb, accountLogin),
+      }).catch(() => {});
+      return;
+    }
+    // Paid actions
+    if (cmd.verb === "close") {
+      await actionClose(token, owner, repo, issueNumber, isPR, cmd.args);
+      return;
+    }
+    if (cmd.verb === "merge") {
+      if (!isPR) {
+        await request("POST /repos/{owner}/{repo}/issues/{issue_number}/comments", {
+          headers: { authorization: `token ${token}` },
+          owner, repo, issue_number: issueNumber,
+          body: `❌ \`merge\` only works on pull requests, not issues.\n\n— [AgenticMail](https://agenticmail.io) · merge`,
+        }).catch(() => {});
+        return;
+      }
+      await actionMerge(token, owner, repo, issueNumber, cmd.args);
+      return;
+    }
+    if (cmd.verb === "review") {
+      if (!isPR) {
+        await request("POST /repos/{owner}/{repo}/issues/{issue_number}/comments", {
+          headers: { authorization: `token ${token}` },
+          owner, repo, issue_number: issueNumber,
+          body: `❌ \`review\` only works on pull requests, not issues.\n\n— [AgenticMail](https://agenticmail.io) · review`,
+        }).catch(() => {});
+        return;
+      }
+      const comments = await fetchIssueComments(token, owner, repo, issueNumber);
+      await actionReview(token, owner, repo, issueNumber, cmd.args, {
+        repo: repoFull,
+        kind: "pull_request",
+        number: issueNumber,
+        title: payload.issue.title ?? "",
+        body: payload.issue.body ?? "",
+        comments,
+        triggerUser: payload.comment.user.login,
+      });
+      return;
+    }
+  }
+  // Free path — LLM-generated comment reply.
+  const comments = await fetchIssueComments(token, owner, repo, issueNumber);
   const reply = await generateReply(cmd.verb, cmd.args, {
     repo: repoFull,
-    kind: payload.issue.pull_request ? "pull_request" : "issue",
-    number: payload.issue.number,
+    kind: isPR ? "pull_request" : "issue",
+    number: issueNumber,
     title: payload.issue.title ?? "",
     body: payload.issue.body ?? "",
     comments,
@@ -403,7 +524,7 @@ async function handleIssueComment(payload: any): Promise<void> {
   });
   await request("POST /repos/{owner}/{repo}/issues/{issue_number}/comments", {
     headers: { authorization: `token ${token}` },
-    owner, repo, issue_number: payload.issue.number,
+    owner, repo, issue_number: issueNumber,
     body: reply,
   });
 }
@@ -426,19 +547,45 @@ async function handlePRReviewComment(payload: any): Promise<void> {
     }).catch(() => {});
     return;
   }
-  const reply = await generateReply(cmd.verb, cmd.args, {
+  const prNumber = payload.pull_request.number;
+  const threadCtx = {
     repo: repoFull,
-    kind: "pull_request",
-    number: payload.pull_request.number,
+    kind: "pull_request" as const,
+    number: prNumber,
     title: payload.pull_request.title ?? "",
     body: payload.pull_request.body ?? "",
     comments: [{ user: payload.comment.user.login, body: payload.comment.body }],
     triggerUser: payload.comment.user.login,
-  });
+  };
+  if (PAID_VERB_SET.has(cmd.verb)) {
+    const accountLogin = payload.repository?.owner?.login;
+    const plan = await getPlan(accountLogin);
+    if (plan !== "paid") {
+      await request("POST /repos/{owner}/{repo}/issues/{issue_number}/comments", {
+        headers: { authorization: `token ${token}` },
+        owner, repo, issue_number: prNumber,
+        body: upgradeRequiredMessage(cmd.verb, accountLogin),
+      }).catch(() => {});
+      return;
+    }
+    if (cmd.verb === "close") {
+      await actionClose(token, owner, repo, prNumber, true, cmd.args);
+      return;
+    }
+    if (cmd.verb === "merge") {
+      await actionMerge(token, owner, repo, prNumber, cmd.args);
+      return;
+    }
+    if (cmd.verb === "review") {
+      await actionReview(token, owner, repo, prNumber, cmd.args, threadCtx);
+      return;
+    }
+  }
+  const reply = await generateReply(cmd.verb, cmd.args, threadCtx);
   // Reply on the same conversation, not as a new review thread (simpler v1).
   await request("POST /repos/{owner}/{repo}/issues/{issue_number}/comments", {
     headers: { authorization: `token ${token}` },
-    owner, repo, issue_number: payload.pull_request.number,
+    owner, repo, issue_number: prNumber,
     body: reply,
   });
 }
@@ -563,6 +710,130 @@ async function notifyInstallation(kind: "created" | "deleted", installationId: n
   } catch {
     /* notification is best-effort */
   }
+}
+
+// ─── Paid action handlers ──────────────────────────────────────────────────
+//
+// These three handlers run AFTER the plan gate has passed in
+// handleIssueComment / handlePRReviewComment. Each posts a confirmation (or
+// failure) comment so the trigger user gets visible feedback even when
+// GitHub branch protection / permissions reject the action.
+
+async function actionClose(token: string, owner: string, repo: string, num: number, isPR: boolean, args: string): Promise<void> {
+  const reason = /not[\s-]?planned|wontfix|won't[\s-]?fix|duplicate/i.test(args) ? "not_planned" : "completed";
+  try {
+    // The Issues PATCH endpoint also closes pull requests — the PR-specific
+    // endpoint is only required for editing draft/locked state. Using the
+    // Issues endpoint keeps the code path uniform.
+    await request("PATCH /repos/{owner}/{repo}/issues/{issue_number}", {
+      headers: { authorization: `token ${token}` },
+      owner, repo, issue_number: num,
+      // state_reason is only valid for issues; GitHub silently ignores it on PRs.
+      ...(isPR ? { state: "closed" } : { state: "closed", state_reason: reason }),
+    } as any);
+    await request("POST /repos/{owner}/{repo}/issues/{issue_number}/comments", {
+      headers: { authorization: `token ${token}` },
+      owner, repo, issue_number: num,
+      body: `✅ Closed${!isPR ? ` (\`${reason}\`)` : ""}.\n\n— [AgenticMail](https://agenticmail.io) · close`,
+    });
+  } catch (err: any) {
+    const status = err?.status;
+    const detail = err?.response?.data?.message ?? err?.message ?? "unknown error";
+    await request("POST /repos/{owner}/{repo}/issues/{issue_number}/comments", {
+      headers: { authorization: `token ${token}` },
+      owner, repo, issue_number: num,
+      body: `❌ Close failed (${status}): ${detail}\n\n— [AgenticMail](https://agenticmail.io) · close`,
+    }).catch(() => {});
+  }
+}
+
+async function actionMerge(token: string, owner: string, repo: string, num: number, args: string): Promise<void> {
+  // Default: squash. Most teams prefer it. Override with explicit args.
+  let merge_method: "squash" | "merge" | "rebase" = "squash";
+  if (/\brebase\b/i.test(args)) merge_method = "rebase";
+  else if (/\bmerge[-_ ]commit\b|\btrue[-_ ]?merge\b|\bno[-_ ]squash\b/i.test(args)) merge_method = "merge";
+  try {
+    await request("PUT /repos/{owner}/{repo}/pulls/{pull_number}/merge", {
+      headers: { authorization: `token ${token}` },
+      owner, repo, pull_number: num,
+      merge_method,
+    });
+    await request("POST /repos/{owner}/{repo}/issues/{issue_number}/comments", {
+      headers: { authorization: `token ${token}` },
+      owner, repo, issue_number: num,
+      body: `✅ Merged with \`${merge_method}\`.\n\n— [AgenticMail](https://agenticmail.io) · merge`,
+    });
+  } catch (err: any) {
+    const status = err?.status;
+    const detail = err?.response?.data?.message ?? err?.message ?? "unknown error";
+    await request("POST /repos/{owner}/{repo}/issues/{issue_number}/comments", {
+      headers: { authorization: `token ${token}` },
+      owner, repo, issue_number: num,
+      body: `❌ Merge failed (${status}): ${detail}\n\n— [AgenticMail](https://agenticmail.io) · merge`,
+    }).catch(() => {});
+  }
+}
+
+async function actionReview(token: string, owner: string, repo: string, num: number, args: string, threadCtx: any): Promise<void> {
+  const reviewBody = await generateReply("review", args, threadCtx);
+  try {
+    // Always event: "COMMENT" — the bot never auto-APPROVES or REQUEST_CHANGES
+    // without explicit human signal. v2 may add `@agenticmail review approve`
+    // for users who want it, gated separately.
+    await request("POST /repos/{owner}/{repo}/pulls/{pull_number}/reviews", {
+      headers: { authorization: `token ${token}` },
+      owner, repo, pull_number: num,
+      body: reviewBody,
+      event: "COMMENT",
+    });
+  } catch (err: any) {
+    const status = err?.status;
+    const detail = err?.response?.data?.message ?? err?.message ?? "unknown error";
+    await request("POST /repos/{owner}/{repo}/issues/{issue_number}/comments", {
+      headers: { authorization: `token ${token}` },
+      owner, repo, issue_number: num,
+      body: `❌ Review post failed (${status}): ${detail}\n\n— [AgenticMail](https://agenticmail.io) · review`,
+    }).catch(() => {});
+  }
+}
+
+// ─── Marketplace purchase handler ──────────────────────────────────────────
+
+async function handleMarketplacePurchase(payload: any): Promise<void> {
+  const action = payload.action; // purchased | changed | pending_change | cancelled
+  const purchase = payload.marketplace_purchase;
+  if (!purchase?.account?.login) return;
+  const store = getStore(BILLING_STORE);
+  const key = purchase.account.login.toLowerCase();
+  if (action === "cancelled") {
+    await store.delete(key).catch(() => {});
+  } else {
+    const record: BillingRecord = {
+      accountLogin: purchase.account.login,
+      accountId: purchase.account.id,
+      planName: purchase.plan?.name ?? "Unknown",
+      planId: purchase.plan?.id ?? 0,
+      billingCycle: purchase.billing_cycle,
+      unitCount: purchase.unit_count,
+      onFreeTrial: purchase.on_free_trial,
+      effectiveDate: payload.effective_date,
+      updatedAt: new Date().toISOString(),
+    };
+    await store.set(key, JSON.stringify(record)).catch(() => {});
+  }
+  await writeAudit({
+    ts: new Date().toISOString(),
+    deliveryId: `mp-${action}-${purchase.account.login}-${Date.now()}`,
+    event: "marketplace_purchase",
+    action,
+    status: "processed",
+    extra: {
+      account: purchase.account.login,
+      planName: purchase.plan?.name,
+      billingCycle: purchase.billing_cycle,
+      onFreeTrial: purchase.on_free_trial,
+    },
+  });
 }
 
 async function fetchIssueComments(token: string, owner: string, repo: string, issueNumber: number): Promise<Array<{ user: string; body: string }>> {
