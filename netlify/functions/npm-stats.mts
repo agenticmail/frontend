@@ -1,13 +1,22 @@
 import type { Context } from "@netlify/functions";
 
-// All packages we promote on the marketing site. The frontend lays
-// them out in this order:
-//   1. @agenticmail/cli         — protocol layer (the base everyone uses)
+// Every published package in the AgenticMail org. Some are user-facing
+// products with their own ProductLineup card (cli, claudecode, codex,
+// enterprise) — others are foundation libraries the user-facing
+// packages depend on (core, api, mcp). The libraries don't get their
+// own UI cards (would confuse the messaging — nobody installs `core`
+// by itself), but their downloads DO count toward the combined total
+// shown in the LiveStats bar. That way the headline number reflects
+// the whole ecosystem's traction, not just the four "promoted" SKUs.
+//
+// Order:
+//   1. @agenticmail/cli         — user-facing protocol entry
 //   2. @agenticmail/claudecode  — Claude Code host plugin
 //   3. @agenticmail/codex       — Codex CLI host plugin
 //   4. @agenticmail/enterprise  — full multi-tenant workforce platform
-// Order matters — the ProductLineup section reads "base → IDE plugins
-// → upgrade path".
+//   5. @agenticmail/api         — REST API server library
+//   6. @agenticmail/mcp         — MCP server library
+//   7. @agenticmail/core        — shared SDK / mail + sms primitives
 //
 // NOTE: the bare `agenticmail` name was renamed to `@agenticmail/cli`
 // and the old name is npm-deprecated. We only fetch download stats for
@@ -19,6 +28,9 @@ const PACKAGES = [
   "@agenticmail/claudecode",
   "@agenticmail/codex",
   "@agenticmail/enterprise",
+  "@agenticmail/api",
+  "@agenticmail/mcp",
+  "@agenticmail/core",
 ] as const;
 
 interface PackageStats {
